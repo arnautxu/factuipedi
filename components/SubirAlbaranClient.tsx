@@ -5,6 +5,8 @@ import Link from "next/link";
 import ExtractedLinesReview from "@/components/ExtractedLinesReview";
 import type { ExtractedDeliveryNote } from "@/lib/ai/extractDeliveryNote";
 import { uploadAndExtractAction } from "@/app/(app)/clientes/[id]/subir/actions";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 
 export default function SubirAlbaranClient({ clientId }: { clientId: string }) {
   const [state, setState] = useState<
@@ -33,11 +35,14 @@ export default function SubirAlbaranClient({ clientId }: { clientId: string }) {
 
   return (
     <div className="space-y-4">
-      <Link href={`/clientes/${clientId}`} className="text-xs text-[var(--muted)] hover:underline">
+      <Link
+        href={`/clientes/${clientId}`}
+        className="rounded text-xs text-[var(--muted)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
+      >
         ← Tornar a la fitxa del client
       </Link>
 
-      <div className="bg-white rounded-2xl border border-[var(--line)] shadow-sm p-8 text-center">
+      <Card className="p-8 text-center">
         <p className="text-sm text-[var(--muted)] mb-4">
           Puja un albarà en PDF rebut d&apos;un altre proveïdor. S&apos;extrauran les línies automàticament amb IA perquè les
           revisis abans de desar-les.
@@ -53,19 +58,16 @@ export default function SubirAlbaranClient({ clientId }: { clientId: string }) {
             e.target.value = "";
           }}
         />
-        <button
-          type="button"
-          disabled={state.status === "uploading"}
-          onClick={() => fileRef.current?.click()}
-          className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-[var(--navy)] hover:bg-[var(--navy-deep)] disabled:opacity-50"
-        >
+        <Button disabled={state.status === "uploading"} onClick={() => fileRef.current?.click()}>
           {state.status === "uploading" ? "Pujant i extraient…" : "Seleccionar PDF"}
-        </button>
+        </Button>
 
         {state.status === "error" && (
-          <p className="text-sm text-red-600 mt-4 max-w-md mx-auto">{state.message}</p>
+          <p role="alert" className="animate-fade-slide-in text-sm text-red-600 mt-4 max-w-md mx-auto">
+            {state.message}
+          </p>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

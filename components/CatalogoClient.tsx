@@ -10,6 +10,8 @@ import {
   deleteItemAction,
   moveItemAction,
 } from "@/app/(app)/catalogo/actions";
+import { Button } from "@/components/ui/Button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 const eur = (v: number | null) => (v == null ? "" : v.toLocaleString("nl-NL", { style: "currency", currency: "EUR" }));
 
@@ -45,6 +47,7 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<Draft>(EMPTY_DRAFT);
   const [newDraft, setNewDraft] = useState<Draft>(EMPTY_DRAFT);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const filtered = useMemo(() => {
@@ -75,8 +78,10 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
     });
   };
 
-  const handleDelete = (id: string) => {
-    if (!confirm("Eliminar aquest producte del catàleg?")) return;
+  const confirmDelete = () => {
+    const id = deletingId;
+    if (!id) return;
+    setDeletingId(null);
     startTransition(async () => {
       try {
         await deleteItemAction(id);
@@ -157,21 +162,12 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
           <p className="text-xs text-[var(--muted)]">{items.length} productes</p>
         </div>
         <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={handleExport}
-            className="px-3 py-2 rounded-lg text-sm font-semibold border border-[var(--line)] bg-white hover:bg-slate-50"
-          >
+          <Button variant="secondary" onClick={handleExport}>
             Descarregar Excel
-          </button>
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() => fileRef.current?.click()}
-            className="px-3 py-2 rounded-lg text-sm font-semibold border border-[var(--line)] bg-white hover:bg-slate-50 disabled:opacity-50"
-          >
+          </Button>
+          <Button variant="secondary" disabled={pending} onClick={() => fileRef.current?.click()}>
             Pujar Excel
-          </button>
+          </Button>
           <input
             ref={fileRef}
             type="file"
@@ -187,17 +183,23 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
       </div>
 
       {message && (
-        <div className="text-sm bg-white border border-[var(--line)] border-l-4 border-l-[var(--teal)] rounded-xl px-4 py-3">
+        <div role="status" className="animate-fade-slide-in text-sm bg-white border border-[var(--line)] border-l-4 border-l-[var(--teal-deep)] rounded-xl px-4 py-3">
           {message}
         </div>
       )}
 
-      <input
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Cerca per codi o descripció…"
-        className="w-full max-w-sm rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--teal)]"
-      />
+      <div>
+        <label htmlFor="catalog-search" className="sr-only">
+          Cerca al catàleg
+        </label>
+        <input
+          id="catalog-search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Cerca per codi o descripció…"
+          className="w-full max-w-sm rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm outline-none transition-shadow duration-150 ease-out focus:ring-2 focus:ring-[var(--focus)]"
+        />
+      </div>
 
       <div className="overflow-x-auto rounded-2xl border border-[var(--line)] bg-white shadow-sm">
         <table className="w-full text-sm">
@@ -215,14 +217,18 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
             {filtered.map((item, i) => {
               const isEditing = editingId === item.id;
               return (
-                <tr key={item.id} className="border-b border-[var(--line-soft,#eef2f8)] last:border-0">
+                <tr
+                  key={item.id}
+                  className="border-b border-[var(--line-soft)] transition-colors duration-150 last:border-0 hover:bg-slate-50/70"
+                >
                   <td className="px-3 py-1.5">
                     <div className="flex flex-col">
                       <button
                         type="button"
                         disabled={i === 0}
                         onClick={() => handleMove(item.id, "up")}
-                        className="text-slate-400 hover:text-[var(--navy)] disabled:opacity-20 text-xs leading-none"
+                        aria-label={`Moure ${item.code || item.description} amunt`}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded text-xs leading-none text-[var(--muted)] transition-colors duration-150 hover:bg-slate-100 hover:text-[var(--navy)] disabled:opacity-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
                       >
                         ▲
                       </button>
@@ -230,7 +236,8 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
                         type="button"
                         disabled={i === filtered.length - 1}
                         onClick={() => handleMove(item.id, "down")}
-                        className="text-slate-400 hover:text-[var(--navy)] disabled:opacity-20 text-xs leading-none"
+                        aria-label={`Moure ${item.code || item.description} avall`}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded text-xs leading-none text-[var(--muted)] transition-colors duration-150 hover:bg-slate-100 hover:text-[var(--navy)] disabled:opacity-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
                       >
                         ▼
                       </button>
@@ -240,38 +247,50 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
                     <>
                       <td className="px-3 py-1.5">
                         <input
+                          aria-label="Categoria"
                           value={editDraft.cat}
                           onChange={(e) => setEditDraft({ ...editDraft, cat: e.target.value })}
-                          className="w-full rounded-md border border-[var(--line)] px-1.5 py-1 text-xs"
+                          className="w-full rounded-md border border-[var(--line)] px-1.5 py-1 text-xs outline-none transition-shadow focus:ring-2 focus:ring-[var(--focus)]"
                         />
                       </td>
                       <td className="px-3 py-1.5">
                         <input
+                          aria-label="Codi"
                           value={editDraft.code}
                           onChange={(e) => setEditDraft({ ...editDraft, code: e.target.value })}
-                          className="w-full rounded-md border border-[var(--line)] px-1.5 py-1 text-sm"
+                          className="w-full rounded-md border border-[var(--line)] px-1.5 py-1 text-sm outline-none transition-shadow focus:ring-2 focus:ring-[var(--focus)]"
                         />
                       </td>
                       <td className="px-3 py-1.5">
                         <input
+                          aria-label="Descripció"
                           value={editDraft.description}
                           onChange={(e) => setEditDraft({ ...editDraft, description: e.target.value })}
-                          className="w-full rounded-md border border-[var(--line)] px-1.5 py-1 text-sm"
+                          className="w-full rounded-md border border-[var(--line)] px-1.5 py-1 text-sm outline-none transition-shadow focus:ring-2 focus:ring-[var(--focus)]"
                         />
                       </td>
                       <td className="px-3 py-1.5">
                         <input
+                          aria-label="Preu"
                           value={editDraft.price}
                           onChange={(e) => setEditDraft({ ...editDraft, price: e.target.value })}
                           placeholder={editDraft.priceText || "preu"}
-                          className="w-full rounded-md border border-[var(--line)] px-1.5 py-1 text-sm"
+                          className="w-full rounded-md border border-[var(--line)] px-1.5 py-1 text-sm outline-none transition-shadow focus:ring-2 focus:ring-[var(--focus)]"
                         />
                       </td>
                       <td className="px-3 py-1.5 whitespace-nowrap">
-                        <button onClick={() => saveEdit(item.id)} className="text-xs font-semibold text-[var(--navy)] mr-2">
+                        <button
+                          type="button"
+                          onClick={() => saveEdit(item.id)}
+                          className="mr-2 rounded px-1.5 py-1 text-xs font-semibold text-[var(--navy)] transition-colors duration-150 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
+                        >
                           Desar
                         </button>
-                        <button onClick={cancelEdit} className="text-xs text-[var(--muted)]">
+                        <button
+                          type="button"
+                          onClick={cancelEdit}
+                          className="rounded px-1.5 py-1 text-xs text-[var(--muted)] transition-colors duration-150 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
+                        >
                           Cancel·la
                         </button>
                       </td>
@@ -283,10 +302,18 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
                       <td className="px-3 py-1.5">{item.description}</td>
                       <td className="px-3 py-1.5 text-[var(--muted)]">{item.price_text || eur(item.price)}</td>
                       <td className="px-3 py-1.5 whitespace-nowrap">
-                        <button onClick={() => startEdit(item)} className="text-xs font-semibold text-[var(--navy)] mr-3">
+                        <button
+                          type="button"
+                          onClick={() => startEdit(item)}
+                          className="mr-3 rounded px-1.5 py-1 text-xs font-semibold text-[var(--navy)] transition-colors duration-150 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
+                        >
                           Editar
                         </button>
-                        <button onClick={() => handleDelete(item.id)} className="text-xs text-red-500">
+                        <button
+                          type="button"
+                          onClick={() => setDeletingId(item.id)}
+                          className="rounded px-1.5 py-1 text-xs text-red-600 transition-colors duration-150 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
+                        >
                           Eliminar
                         </button>
                       </td>
@@ -300,38 +327,46 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
               <td className="px-3 py-1.5"></td>
               <td className="px-3 py-1.5">
                 <input
+                  aria-label="Categoria del nou producte"
                   value={newDraft.cat}
                   onChange={(e) => setNewDraft({ ...newDraft, cat: e.target.value })}
                   placeholder="Categoria"
-                  className="w-full rounded-md border border-[var(--line)] px-1.5 py-1 text-xs"
+                  className="w-full rounded-md border border-[var(--line)] px-1.5 py-1 text-xs outline-none transition-shadow focus:ring-2 focus:ring-[var(--focus)]"
                 />
               </td>
               <td className="px-3 py-1.5">
                 <input
+                  aria-label="Codi del nou producte"
                   value={newDraft.code}
                   onChange={(e) => setNewDraft({ ...newDraft, code: e.target.value })}
                   placeholder="Codi"
-                  className="w-full rounded-md border border-[var(--line)] px-1.5 py-1 text-sm"
+                  className="w-full rounded-md border border-[var(--line)] px-1.5 py-1 text-sm outline-none transition-shadow focus:ring-2 focus:ring-[var(--focus)]"
                 />
               </td>
               <td className="px-3 py-1.5">
                 <input
+                  aria-label="Descripció del nou producte"
                   value={newDraft.description}
                   onChange={(e) => setNewDraft({ ...newDraft, description: e.target.value })}
                   placeholder="Descripció"
-                  className="w-full rounded-md border border-[var(--line)] px-1.5 py-1 text-sm"
+                  className="w-full rounded-md border border-[var(--line)] px-1.5 py-1 text-sm outline-none transition-shadow focus:ring-2 focus:ring-[var(--focus)]"
                 />
               </td>
               <td className="px-3 py-1.5">
                 <input
+                  aria-label="Preu del nou producte"
                   value={newDraft.price}
                   onChange={(e) => setNewDraft({ ...newDraft, price: e.target.value })}
                   placeholder="Preu"
-                  className="w-full rounded-md border border-[var(--line)] px-1.5 py-1 text-sm"
+                  className="w-full rounded-md border border-[var(--line)] px-1.5 py-1 text-sm outline-none transition-shadow focus:ring-2 focus:ring-[var(--focus)]"
                 />
               </td>
               <td className="px-3 py-1.5">
-                <button type="button" onClick={handleCreate} className="text-xs font-semibold text-[var(--navy)]">
+                <button
+                  type="button"
+                  onClick={handleCreate}
+                  className="rounded px-1.5 py-1 text-xs font-semibold text-[var(--navy)] transition-colors duration-150 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
+                >
                   + Afegir
                 </button>
               </td>
@@ -340,6 +375,16 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
         </table>
         {filtered.length === 0 && <p className="text-sm text-[var(--muted)] px-5 py-6">Cap producte trobat.</p>}
       </div>
+
+      <ConfirmDialog
+        open={deletingId !== null}
+        title="Eliminar aquest producte?"
+        description="S'eliminarà del catàleg. Aquesta acció no es pot desfer."
+        confirmLabel="Eliminar"
+        danger
+        onConfirm={confirmDelete}
+        onCancel={() => setDeletingId(null)}
+      />
     </div>
   );
 }

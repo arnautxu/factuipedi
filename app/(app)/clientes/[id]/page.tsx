@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import ClientForm from "@/components/ClientForm";
 import DeliveryNotesTable from "@/components/DeliveryNotesTable";
+import DeleteClientButton from "@/components/DeleteClientButton";
+import { Card } from "@/components/ui/Card";
 import { getClient, getDeliveryNotesForClient } from "@/lib/supabase/queries";
 import { updateClientAction, deleteClientAction } from "../actions";
 
@@ -19,28 +21,30 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-lg font-bold text-[var(--navy)]">{client.naam_patient || "(sense nom)"}</h1>
-          <Link href="/clientes" className="text-xs text-[var(--muted)] hover:underline">
+          <Link
+            href="/clientes"
+            className="rounded text-xs text-[var(--muted)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
+          >
             ← Tornar a clients
           </Link>
         </div>
-        <form action={boundDelete}>
-          <button type="submit" className="text-xs font-medium text-red-500 hover:text-red-700">
-            Eliminar client
-          </button>
-        </form>
+        <DeleteClientButton clientName={client.naam_patient ?? ""} action={boundDelete} />
       </div>
 
       <ClientForm client={client} action={boundUpdate} submitLabel="Desar canvis" />
 
-      <div className="bg-white rounded-2xl border border-[var(--line)] shadow-sm overflow-hidden">
+      <Card className="overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--line)]">
           <h2 className="text-sm font-bold text-[var(--navy)]">Albarans</h2>
-          <Link href={`/clientes/${id}/subir`} className="text-xs font-semibold text-[var(--navy)] hover:underline">
+          <Link
+            href={`/clientes/${id}/subir`}
+            className="rounded text-xs font-semibold text-[var(--navy)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
+          >
             + Pujar albarà extern
           </Link>
         </div>
         <DeliveryNotesTable clientId={id} notes={notes} />
-      </div>
+      </Card>
     </div>
   );
 }

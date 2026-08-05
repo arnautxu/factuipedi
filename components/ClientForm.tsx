@@ -1,4 +1,6 @@
 import type { Client } from "@/types/database";
+import { UncontrolledField, UncontrolledTextarea } from "@/components/ui/Field";
+import { Button } from "@/components/ui/Button";
 
 export default function ClientForm({
   client,
@@ -12,73 +14,25 @@ export default function ClientForm({
   return (
     <form action={action} className="bg-white rounded-2xl border border-[var(--line)] shadow-sm p-6 space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-4">
-        <div>
-          <label className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wide mb-1">
-            Naam patiënt
-          </label>
-          <input
-            name="naam_patient"
-            defaultValue={client?.naam_patient ?? ""}
-            className="w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--teal)]"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wide mb-1">
-            Geboorte datum
-          </label>
-          <input
-            name="geboortedatum"
-            placeholder="dd-mm-jjjj"
-            defaultValue={client?.geboortedatum ?? ""}
-            className="w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--teal)]"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wide mb-1">
-            Behandelaar
-          </label>
-          <input
-            name="behandelaar"
-            defaultValue={client?.behandelaar ?? ""}
-            className="w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--teal)]"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wide mb-1">
-            Kliniek / adres
-          </label>
-          <input
-            name="klant_regel2"
-            defaultValue={client?.klant_regel2 ?? ""}
-            className="w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--teal)]"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wide mb-1">
-            In opdracht gemaakt van
-          </label>
-          <input
-            name="in_opdracht"
-            defaultValue={client?.in_opdracht ?? ""}
-            className="w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--teal)]"
-          />
-        </div>
-      </div>
-      <div>
-        <label className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wide mb-1">Notes</label>
-        <textarea
-          name="notes"
-          rows={3}
-          defaultValue={client?.notes ?? ""}
-          className="w-full rounded-lg border border-[var(--line)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--teal)]"
+        <UncontrolledField label="Naam patiënt" name="naam_patient" defaultValue={client?.naam_patient ?? ""} />
+        <UncontrolledField
+          label="Geboorte datum"
+          name="geboortedatum"
+          placeholder="dd-mm-jjjj"
+          defaultValue={client?.geboortedatum ?? ""}
+        />
+        <UncontrolledField label="Behandelaar" name="behandelaar" defaultValue={client?.behandelaar ?? ""} />
+        <UncontrolledField label="Kliniek / adres" name="klant_regel2" defaultValue={client?.klant_regel2 ?? ""} />
+        <UncontrolledField
+          label="In opdracht gemaakt van"
+          name="in_opdracht"
+          defaultValue={client?.in_opdracht ?? ""}
         />
       </div>
-      <button
-        type="submit"
-        className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-[var(--navy)] hover:bg-[var(--navy-deep)]"
-      >
+      <UncontrolledTextarea label="Notes" name="notes" rows={3} defaultValue={client?.notes ?? ""} />
+      <Button type="submit" variant="primary">
         {submitLabel}
-      </button>
+      </Button>
     </form>
   );
 }

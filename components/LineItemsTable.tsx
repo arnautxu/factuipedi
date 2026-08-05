@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { CatalogEntry } from "@/types/catalog";
 import type { LineItem } from "@/types/albaran";
 
@@ -30,7 +31,47 @@ export default function LineItemsTable({
 }) {
   const [openRow, setOpenRow] = useState<number | null>(null);
   const [sugIndex, setSugIndex] = useState(-1);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const rowRefs = useRef<Record<number, HTMLInputElement | null>>({});
+  const codeInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
+
+  // The suggestion dropdown is portaled to <body> and positioned with `fixed`
+  // coordinates: it's anchored to a table cell inside an `overflow-x-auto`
+  // wrapper, and setting overflow-x forces the browser to clip overflow-y too,
+  // so an absolutely-positioned dropdown would get cut off instead of floating
+  // above the rest of the page.
+  useLayoutEffect(() => {
+    if (openRow === null) {
+      setDropdownPos(null);
+      return;
+    }
+    const el = codeInputRefs.current[openRow];
+    if (!el) return;
+    const update = () => {
+      const r = el.getBoundingClientRect();
+      setDropdownPos({ top: r.bottom + 4, left: r.left, width: Math.min(420, window.innerWidth - r.left - 16) });
+    };
+    update();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [openRow]);
+
+  // Stable row keys: `lines` has no id field, and edits replace each entry with a
+  // new object, so identity can't be used. New lines are always appended, and
+  // removal always goes through removeLine below, so a parallel id array kept in
+  // lockstep (push on growth, splice on removal) stays correctly aligned by index.
+  const idsRef = useRef<number[]>(lines.map((_, i) => i));
+  const nextIdRef = useRef(lines.length);
+  while (idsRef.current.length < lines.length) {
+    idsRef.current.push(nextIdRef.current++);
+  }
+  if (idsRef.current.length > lines.length) {
+    idsRef.current.length = lines.length;
+  }
 
   const setLine = (i: number, patch: Partial<LineItem>) => {
     const next = lines.slice();
@@ -67,6 +108,7 @@ export default function LineItemsTable({
   };
 
   const removeLine = (i: number) => {
+    idsRef.current.splice(i, 1);
     onChange(lines.filter((_, idx) => idx !== i));
   };
 
@@ -92,14 +134,25 @@ export default function LineItemsTable({
             {lines.map((l, i) => {
               const bedrag = lineBedrag(l);
               const sugs = openRow === i ? suggestions(catalog, l.code) : [];
+              const listboxId = `line-${idsRef.current[i]}-suggestions`;
               return (
-                <tr key={i} className="border-b border-[var(--line-soft,#eef2f8)] last:border-0">
+                <tr
+                  key={idsRef.current[i]}
+                  className="animate-fade-slide-in border-b border-[var(--line-soft)] transition-colors duration-150 last:border-0 hover:bg-slate-50/70"
+                >
                   <td className="px-3 py-1.5 relative">
                     <input
-                      className="w-full rounded-md border border-transparent px-1.5 py-1 text-sm focus:border-[var(--teal)] focus:outline-none"
+                      className="w-full rounded-md border border-transparent px-1.5 py-1 text-sm outline-none transition-colors focus:border-[var(--focus)]"
                       value={l.code}
                       placeholder="1.1"
                       autoComplete="off"
+                      role="combobox"
+                      aria-autocomplete="list"
+                      aria-expanded={sugs.length > 0}
+                      aria-controls={listboxId}
+                      ref={(el) => {
+                        codeInputRefs.current[i] = el;
+                      }}
                       onChange={(e) => handleCodeInput(i, e.target.value)}
                       onFocus={() => {
                         setOpenRow(i);
@@ -123,28 +176,40 @@ export default function LineItemsTable({
                         }
                       }}
                     />
-                    {sugs.length > 0 && (
-                      <div className="absolute z-20 left-0 top-full mt-1 w-[420px] max-h-64 overflow-auto rounded-lg border border-[var(--line)] bg-white shadow-lg">
-                        {sugs.map((p, k) => (
-                          <div
-                            key={p.code}
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              pickCode(i, p.code);
-                            }}
-                            className={`flex gap-2 px-3 py-1.5 text-xs cursor-pointer ${k === sugIndex ? "bg-[var(--tint,#ecf9fa)]" : "hover:bg-slate-50"}`}
-                          >
-                            <span className="font-semibold text-[var(--navy)] w-10 shrink-0">{p.code}</span>
-                            <span className="flex-1 truncate">{p.description}</span>
-                            <span className="text-[var(--muted)] shrink-0">{p.priceText || (p.price != null ? eur(p.price) : "")}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    {sugs.length > 0 &&
+                      dropdownPos &&
+                      typeof document !== "undefined" &&
+                      createPortal(
+                        <div
+                          id={listboxId}
+                          role="listbox"
+                          style={{ top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width }}
+                          className="animate-fade-slide-in fixed z-50 max-h-64 overflow-auto rounded-lg border border-[var(--line)] bg-white shadow-lg"
+                        >
+                          {sugs.map((p, k) => (
+                            <div
+                              key={p.code}
+                              role="option"
+                              aria-selected={k === sugIndex}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                pickCode(i, p.code);
+                              }}
+                              className={`flex gap-2 px-3 py-1.5 text-xs cursor-pointer transition-colors ${k === sugIndex ? "bg-[var(--tint)]" : "hover:bg-slate-50"}`}
+                            >
+                              <span className="font-semibold text-[var(--navy)] w-10 shrink-0">{p.code}</span>
+                              <span className="flex-1 truncate">{p.description}</span>
+                              <span className="text-[var(--muted)] shrink-0">{p.priceText || (p.price != null ? eur(p.price) : "")}</span>
+                            </div>
+                          ))}
+                        </div>,
+                        document.body
+                      )}
                   </td>
                   <td className="px-3 py-1.5">
                     <input
-                      className="w-full rounded-md border border-transparent px-1.5 py-1 text-sm focus:border-[var(--teal)] focus:outline-none"
+                      aria-label="Omschrijving"
+                      className="w-full rounded-md border border-transparent px-1.5 py-1 text-sm outline-none transition-colors focus:border-[var(--focus)]"
                       value={l.description}
                       onChange={(e) => setLine(i, { description: e.target.value })}
                     />
@@ -152,7 +217,8 @@ export default function LineItemsTable({
                   <td className="px-3 py-1.5">
                     <input
                       type="number"
-                      className="w-full rounded-md border border-transparent px-1.5 py-1 text-sm focus:border-[var(--teal)] focus:outline-none"
+                      aria-label="Aantal"
+                      className="w-full rounded-md border border-transparent px-1.5 py-1 text-sm outline-none transition-colors focus:border-[var(--focus)]"
                       value={l.qty}
                       onChange={(e) => setLine(i, { qty: e.target.value })}
                       ref={(el) => {
@@ -164,7 +230,8 @@ export default function LineItemsTable({
                     <input
                       type="number"
                       step="0.01"
-                      className="w-full rounded-md border border-transparent px-1.5 py-1 text-sm focus:border-[var(--teal)] focus:outline-none"
+                      aria-label="Prijs"
+                      className="w-full rounded-md border border-transparent px-1.5 py-1 text-sm outline-none transition-colors focus:border-[var(--focus)]"
                       value={l.price}
                       placeholder={l.priceText || ""}
                       onChange={(e) => setLine(i, { price: e.target.value })}
@@ -181,7 +248,7 @@ export default function LineItemsTable({
                     <button
                       type="button"
                       onClick={() => removeLine(i)}
-                      className="text-slate-400 hover:text-red-500 text-lg leading-none"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-lg leading-none text-[var(--muted)] transition-colors duration-150 hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
                       aria-label="Eliminar línia"
                     >
                       ×
@@ -195,7 +262,7 @@ export default function LineItemsTable({
       </div>
 
       <div className="flex items-center justify-between mt-3 text-sm text-[var(--muted)]">
-        <span>{pageCount > 1 ? `${filledCount} líneas · el PDF tendrá ${pageCount} páginas` : `${filledCount} líneas (1 página)`}</span>
+        <span>{pageCount > 1 ? `${filledCount} línies · el PDF tindrà ${pageCount} pàgines` : `${filledCount} línies (1 pàgina)`}</span>
         <span className="font-bold text-[var(--navy)] text-base">{eur(total)}</span>
       </div>
     </div>
