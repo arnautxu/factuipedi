@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+:root {
+  --navy: #1e4789;
+  --navy-deep: #14356b;
+  --teal: #4fbec4;
+  --teal-deep: #2f9aa0;
+  --ink: #15243f;
+  --muted: #68789a;
+  --paper: #e8eef6;
+  --card: #ffffff;
+  --line: #e5eaf3;
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+}
