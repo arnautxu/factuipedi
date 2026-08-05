@@ -1,8 +1,11 @@
 import "server-only";
+import { randomUUID } from "node:crypto";
 import { createAdminClient } from "./admin";
-import type { Client, DeliveryNote, DeliveryNoteLine, CatalogItem } from "@/types/database";
+import type { Client, DeliveryNote, DeliveryNoteLine, CatalogItem, UploadedDocument } from "@/types/database";
 import type { AlbaranHeader, LineItem } from "@/types/albaran";
 import type { EmbeddedCatalogItem } from "@/lib/catalog/embeddedCatalog";
+
+export const DELIVERY_NOTE_PDFS_BUCKET = "delivery-note-pdfs";
 
 export async function getCatalogItems(): Promise<CatalogItem[]> {
   const supabase = createAdminClient();
@@ -10,25 +13,82 @@ export async function getCatalogItems(): Promise<CatalogItem[]> {
     .from("catalog_items")
     .select("*")
     .eq("active", true)
-    .order("code", { ascending: true });
+    .order("position", { ascending: true });
   if (error) throw error;
   return (data ?? []) as CatalogItem[];
 }
 
+// Reimportació massiva (des d'un .xlsx pujat): substitueix l'ordre pel de l'arxiu importat.
 export async function replaceCatalogItems(items: EmbeddedCatalogItem[]): Promise<number> {
   if (!items.length) return 0;
   const supabase = createAdminClient();
-  const rows = items.map((item) => ({
+  const rows = items.map((item, i) => ({
     cat: item.cat,
     code: item.code,
     description: item.description,
     price: item.price,
     price_text: item.price_text,
     active: true,
+    position: i,
   }));
   const { error } = await supabase.from("catalog_items").upsert(rows, { onConflict: "code" });
   if (error) throw error;
   return items.length;
+}
+
+export async function createCatalogItem(input: {
+  cat: string;
+  code: string;
+  description: string;
+  price: number | null;
+  price_text: string | null;
+}): Promise<CatalogItem> {
+  const supabase = createAdminClient();
+  const { data: maxRow } = await supabase
+    .from("catalog_items")
+    .select("position")
+    .order("position", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextPosition = ((maxRow as { position: number } | null)?.position ?? -1) + 1;
+
+  const { data, error } = await supabase
+    .from("catalog_items")
+    .insert({ ...input, active: true, position: nextPosition })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as CatalogItem;
+}
+
+export async function updateCatalogItem(
+  id: string,
+  input: Partial<Pick<CatalogItem, "cat" | "code" | "description" | "price" | "price_text">>
+): Promise<CatalogItem> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("catalog_items")
+    .update({ ...input, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as CatalogItem;
+}
+
+export async function deleteCatalogItem(id: string): Promise<void> {
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("catalog_items").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// Intercanvia la posició de dos ítems (per als botons de pujar/baixar de la UI).
+export async function swapCatalogItemPositions(idA: string, posA: number, idB: string, posB: number): Promise<void> {
+  const supabase = createAdminClient();
+  const { error: e1 } = await supabase.from("catalog_items").update({ position: posB }).eq("id", idA);
+  if (e1) throw e1;
+  const { error: e2 } = await supabase.from("catalog_items").update({ position: posA }).eq("id", idB);
+  if (e2) throw e2;
 }
 
 export async function getClients(search?: string): Promise<Client[]> {
@@ -142,4 +202,64 @@ export async function getDeliveryNoteLines(deliveryNoteId: string): Promise<Deli
     .order("position", { ascending: true });
   if (error) throw error;
   return (data ?? []) as DeliveryNoteLine[];
+}
+
+export async function getUploadedDocumentsForClient(clientId: string): Promise<UploadedDocument[]> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("uploaded_documents")
+    .select("*")
+    .eq("client_id", clientId)
+    .order("uploaded_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as UploadedDocument[];
+}
+
+export async function getUploadedDocument(id: string): Promise<UploadedDocument | null> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.from("uploaded_documents").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  return data as UploadedDocument | null;
+}
+
+// Puja el PDF a Storage i crea la fila uploaded_documents (status='pending').
+export async function uploadDeliveryNoteDocument(
+  clientId: string,
+  file: File
+): Promise<UploadedDocument> {
+  const supabase = createAdminClient();
+  const storagePath = `clients/${clientId}/${randomUUID()}.pdf`;
+  const bytes = new Uint8Array(await file.arrayBuffer());
+
+  const { error: uploadError } = await supabase.storage
+    .from(DELIVERY_NOTE_PDFS_BUCKET)
+    .upload(storagePath, bytes, { contentType: "application/pdf" });
+  if (uploadError) throw uploadError;
+
+  const { data, error } = await supabase
+    .from("uploaded_documents")
+    .insert({
+      client_id: clientId,
+      storage_path: storagePath,
+      original_filename: file.name,
+      status: "pending",
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as UploadedDocument;
+}
+
+export async function downloadDeliveryNoteDocument(storagePath: string): Promise<Uint8Array> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.storage.from(DELIVERY_NOTE_PDFS_BUCKET).download(storagePath);
+  if (error) throw error;
+  return new Uint8Array(await data.arrayBuffer());
+}
+
+export async function updateUploadedDocument(id: string, patch: Partial<UploadedDocument>): Promise<UploadedDocument> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.from("uploaded_documents").update(patch).eq("id", id).select().single();
+  if (error) throw error;
+  return data as UploadedDocument;
 }

@@ -36,7 +36,12 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
       <div className="bg-white rounded-2xl border border-[var(--line)] shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--line)]">
           <h2 className="text-sm font-bold text-[var(--navy)]">Albarans</h2>
-          <span className="text-xs text-[var(--muted)]">Fase 5/6: pujar externs i factura combinada — properament</span>
+          <div className="flex items-center gap-3">
+            <Link href={`/clientes/${id}/subir`} className="text-xs font-semibold text-[var(--navy)] hover:underline">
+              + Pujar albarà extern
+            </Link>
+            <span className="text-xs text-[var(--muted)]">Fase 6: factura combinada — properament</span>
+          </div>
         </div>
         {notes.length === 0 ? (
           <p className="text-sm text-[var(--muted)] px-5 py-6">Encara no hi ha albarans per a aquest client.</p>

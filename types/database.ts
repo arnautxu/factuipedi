@@ -6,6 +6,7 @@ export type CatalogItem = {
   price: number | null;
   price_text: string | null;
   active: boolean;
+  position: number;
   created_at: string;
   updated_at: string;
 };

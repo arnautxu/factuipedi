@@ -1,7 +1,7 @@
 import CatalogoClient from "@/components/CatalogoClient";
-import { getCatalog } from "@/lib/catalog/getCatalog";
+import { getCatalogItems } from "@/lib/supabase/queries";
 
 export default async function CatalogoPage() {
-  const catalog = await getCatalog();
+  const catalog = await getCatalogItems();
   return <CatalogoClient catalog={catalog} />;
 }
