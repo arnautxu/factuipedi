@@ -204,6 +204,25 @@ export async function getDeliveryNoteLines(deliveryNoteId: string): Promise<Deli
   return (data ?? []) as DeliveryNoteLine[];
 }
 
+// Totes les línies de diversos albarans a la vegada, agrupades per delivery_note_id
+// (per construir la previsualització/factura combinada d'un client).
+export async function getDeliveryNoteLinesForNotes(noteIds: string[]): Promise<Map<string, DeliveryNoteLine[]>> {
+  const map = new Map<string, DeliveryNoteLine[]>();
+  if (!noteIds.length) return map;
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("delivery_note_lines")
+    .select("*")
+    .in("delivery_note_id", noteIds)
+    .order("position", { ascending: true });
+  if (error) throw error;
+  for (const line of (data ?? []) as DeliveryNoteLine[]) {
+    if (!map.has(line.delivery_note_id)) map.set(line.delivery_note_id, []);
+    map.get(line.delivery_note_id)!.push(line);
+  }
+  return map;
+}
+
 export async function getUploadedDocumentsForClient(clientId: string): Promise<UploadedDocument[]> {
   const supabase = createAdminClient();
   const { data, error } = await supabase

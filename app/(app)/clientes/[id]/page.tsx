@@ -1,10 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import ClientForm from "@/components/ClientForm";
+import DeliveryNotesTable from "@/components/DeliveryNotesTable";
 import { getClient, getDeliveryNotesForClient } from "@/lib/supabase/queries";
 import { updateClientAction, deleteClientAction } from "../actions";
-
-const eur = (v: number | null) => (v == null ? "—" : v.toLocaleString("nl-NL", { style: "currency", currency: "EUR" }));
 
 export default async function ClienteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -36,37 +35,11 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
       <div className="bg-white rounded-2xl border border-[var(--line)] shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--line)]">
           <h2 className="text-sm font-bold text-[var(--navy)]">Albarans</h2>
-          <div className="flex items-center gap-3">
-            <Link href={`/clientes/${id}/subir`} className="text-xs font-semibold text-[var(--navy)] hover:underline">
-              + Pujar albarà extern
-            </Link>
-            <span className="text-xs text-[var(--muted)]">Fase 6: factura combinada — properament</span>
-          </div>
+          <Link href={`/clientes/${id}/subir`} className="text-xs font-semibold text-[var(--navy)] hover:underline">
+            + Pujar albarà extern
+          </Link>
         </div>
-        {notes.length === 0 ? (
-          <p className="text-sm text-[var(--muted)] px-5 py-6">Encara no hi ha albarans per a aquest client.</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs uppercase tracking-wide text-[var(--muted)] border-b border-[var(--line)]">
-                <th className="px-5 py-2.5">Pakbonnummer</th>
-                <th className="px-5 py-2.5">Data</th>
-                <th className="px-5 py-2.5">Origen</th>
-                <th className="px-5 py-2.5 text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {notes.map((n) => (
-                <tr key={n.id} className="border-b border-[var(--line-soft,#eef2f8)] last:border-0">
-                  <td className="px-5 py-2.5 font-medium">{n.pakbonnummer || "—"}</td>
-                  <td className="px-5 py-2.5 text-[var(--muted)]">{n.uitgiftedatum || "—"}</td>
-                  <td className="px-5 py-2.5 text-[var(--muted)] capitalize">{n.source}</td>
-                  <td className="px-5 py-2.5 text-right">{eur(n.total)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        <DeliveryNotesTable clientId={id} notes={notes} />
       </div>
     </div>
   );
