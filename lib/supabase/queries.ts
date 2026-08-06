@@ -134,6 +134,22 @@ export async function deleteClient(id: string): Promise<void> {
   if (error) throw error;
 }
 
+// Importació massiva des d'un CSV: sempre crea files noves (la taula clients no té
+// cap clau única per fer-hi upsert), en blocs per evitar payloads massa grans.
+export async function bulkInsertClients(rows: Partial<Client>[]): Promise<number> {
+  if (!rows.length) return 0;
+  const supabase = createAdminClient();
+  const CHUNK = 500;
+  let inserted = 0;
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const chunk = rows.slice(i, i + CHUNK);
+    const { error } = await supabase.from("clients").insert(chunk);
+    if (error) throw error;
+    inserted += chunk.length;
+  }
+  return inserted;
+}
+
 export async function getDeliveryNotesForClient(clientId: string): Promise<DeliveryNote[]> {
   const supabase = createAdminClient();
   const { data, error } = await supabase

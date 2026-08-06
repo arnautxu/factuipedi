@@ -9,8 +9,10 @@ import {
   getClient,
   getDeliveryNoteLinesForNotes,
   createDeliveryNoteWithLines,
+  bulkInsertClients,
 } from "@/lib/supabase/queries";
 import { emptyHeader, type LineItem } from "@/types/albaran";
+import type { Client } from "@/types/database";
 
 export async function createClientAction(formData: FormData) {
   const client = await createClient({
@@ -42,6 +44,12 @@ export async function deleteClientAction(id: string) {
   await deleteClient(id);
   revalidatePath("/clientes");
   redirect("/clientes");
+}
+
+export async function importClientsAction(rows: Partial<Client>[]): Promise<{ count: number }> {
+  const count = await bulkInsertClients(rows);
+  revalidatePath("/clientes");
+  return { count };
 }
 
 // Combina les línies de diversos albarans del client en una sola llista, per

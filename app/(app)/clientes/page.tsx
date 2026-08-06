@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getClients } from "@/lib/supabase/queries";
 import { Card } from "@/components/ui/Card";
+import { ClientsToolbar } from "@/components/ClientsToolbar";
 
 export default async function ClientesPage({
   searchParams,
@@ -14,12 +15,7 @@ export default async function ClientesPage({
     <div>
       <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
         <h1 className="text-lg font-bold text-[var(--navy)]">Clients</h1>
-        <Link
-          href="/clientes/nuevo"
-          className="px-3 py-2 rounded-lg text-sm font-semibold text-white bg-[var(--navy)] transition-colors duration-150 ease-out hover:bg-[var(--navy-deep)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)] focus-visible:ring-offset-1"
-        >
-          + Nou client
-        </Link>
+        <ClientsToolbar clients={clients} />
       </div>
 
       <form className="mb-4">
