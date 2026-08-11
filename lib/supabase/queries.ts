@@ -4,6 +4,7 @@ import { createAdminClient } from "./admin";
 import type { Client, DeliveryNote, DeliveryNoteLine, CatalogItem, UploadedDocument } from "@/types/database";
 import type { AlbaranHeader, LineItem } from "@/types/albaran";
 import type { EmbeddedCatalogItem } from "@/lib/catalog/embeddedCatalog";
+import { lineTotal, applyDiscountToAmount } from "@/lib/albaran/pricing";
 
 export const DELIVERY_NOTE_PDFS_BUCKET = "delivery-note-pdfs";
 
@@ -165,11 +166,13 @@ export async function createDeliveryNoteWithLines(
   clientId: string | null,
   header: AlbaranHeader,
   lines: LineItem[],
-  source: DeliveryNote["source"] = "created"
+  source: DeliveryNote["source"] = "created",
+  documentDiscount = ""
 ): Promise<DeliveryNote> {
   const supabase = createAdminClient();
   const filled = lines.filter((l) => l.code || l.description);
-  const total = filled.reduce((s, l) => s + (parseFloat(l.qty) || 0) * (parseFloat(l.price) || 0), 0);
+  const subtotal = filled.reduce((s, l) => s + lineTotal(l), 0);
+  const total = applyDiscountToAmount(subtotal, documentDiscount);
 
   const { data: note, error: noteError } = await supabase
     .from("delivery_notes")

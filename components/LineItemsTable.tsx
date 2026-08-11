@@ -4,6 +4,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { CatalogEntry } from "@/types/catalog";
 import type { LineItem } from "@/types/albaran";
+import { lineTotal } from "@/lib/albaran/pricing";
 
 const eur = (v: number) => v.toLocaleString("nl-NL", { style: "currency", currency: "EUR" });
 
@@ -79,8 +80,6 @@ export default function LineItemsTable({
     onChange(next);
   };
 
-  const lineBedrag = (l: LineItem) => (parseFloat(l.qty) || 0) * (parseFloat(l.price) || 0);
-
   const handleCodeInput = (i: number, value: string) => {
     const m = findByCode(catalog, value);
     if (m) {
@@ -112,7 +111,7 @@ export default function LineItemsTable({
     onChange(lines.filter((_, idx) => idx !== i));
   };
 
-  const total = lines.reduce((s, l) => s + lineBedrag(l), 0);
+  const total = lines.reduce((s, l) => s + lineTotal(l), 0);
   const filledCount = lines.filter((l) => l.code || l.description).length;
   const pageCount = Math.max(1, Math.ceil(filledCount / 11));
 
@@ -133,7 +132,7 @@ export default function LineItemsTable({
           </thead>
           <tbody>
             {lines.map((l, i) => {
-              const bedrag = lineBedrag(l);
+              const bedrag = lineTotal(l);
               const sugs = openRow === i ? suggestions(catalog, l.code) : [];
               const listboxId = `line-${idsRef.current[i]}-suggestions`;
               return (
@@ -241,7 +240,7 @@ export default function LineItemsTable({
                   <td className="px-3 py-1.5">
                     <input
                       aria-label="Korting"
-                      placeholder="—"
+                      placeholder="10%"
                       className="w-full rounded-md border border-transparent px-1.5 py-1 text-sm text-amber-700 outline-none transition-colors focus:border-[var(--focus)]"
                       value={l.discount}
                       onChange={(e) => setLine(i, { discount: e.target.value })}

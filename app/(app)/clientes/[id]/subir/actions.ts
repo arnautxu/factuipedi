@@ -37,11 +37,12 @@ export async function saveExtractedNoteAction(
   documentId: string,
   patientName: string,
   date: string,
-  lines: LineItem[]
+  lines: LineItem[],
+  documentDiscount = ""
 ): Promise<{ noteId: string } | { error: string }> {
   try {
     const header = { ...emptyHeader(), naam_patient: patientName, uitgiftedatum: date };
-    const note = await createDeliveryNoteWithLines(clientId, header, lines, "uploaded");
+    const note = await createDeliveryNoteWithLines(clientId, header, lines, "uploaded", documentDiscount);
     await updateUploadedDocument(documentId, { status: "reviewed", delivery_note_id: note.id });
     revalidatePath(`/clientes/${clientId}`);
     return { noteId: note.id };

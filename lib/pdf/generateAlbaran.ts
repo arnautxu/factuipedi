@@ -1,6 +1,7 @@
 import { PDFDocument, PDFName, StandardFonts, rgb } from "pdf-lib";
 import { TEMPLATE_B64 } from "./template";
 import type { AlbaranHeader, LineItem } from "@/types/albaran";
+import { lineTotal } from "@/lib/albaran/pricing";
 
 // Motor de generació del PDF, portat gairebé literalment de l'index.html original.
 // La plantilla (TEMPLATE_B64) i les coordenades (ROW_Y/COL/H) estan lligades exactament
@@ -24,7 +25,6 @@ const fmtNum = (n: unknown) => {
   return isFinite(v) ? v.toLocaleString("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "";
 };
 
-const lineTotal = (l: LineItem) => (parseFloat(l.qty) || 0) * (parseFloat(l.price) || 0);
 const lineBedrag = (l: LineItem) => {
   const pv = parseFloat(l.price);
   return isFinite(pv) && l.price !== "" ? fmtNum(lineTotal(l)) : "";

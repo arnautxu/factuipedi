@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { ExtractedDeliveryNote } from "@/lib/ai/extractDeliveryNote";
 import type { LineItem } from "@/types/albaran";
 import { saveExtractedNoteAction } from "@/app/(app)/clientes/[id]/subir/actions";
+import { lineTotal, applyDiscountToAmount } from "@/lib/albaran/pricing";
 import { Field } from "@/components/ui/Field";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -54,12 +55,13 @@ export default function ExtractedLinesReview({
     setLines((ls) => ls.filter((_, idx) => idx !== i));
   };
 
-  const total = lines.reduce((s, l) => s + (parseFloat(l.qty) || 0) * (parseFloat(l.price) || 0), 0);
+  const subtotal = lines.reduce((s, l) => s + lineTotal(l), 0);
+  const total = applyDiscountToAmount(subtotal, extracted.discount);
 
   const handleSave = async () => {
     setSaving(true);
     setError(null);
-    const result = await saveExtractedNoteAction(clientId, documentId, patientName, date, lines);
+    const result = await saveExtractedNoteAction(clientId, documentId, patientName, date, lines, extracted.discount);
     setSaving(false);
     if ("error" in result) {
       setError(result.error);
@@ -76,8 +78,8 @@ export default function ExtractedLinesReview({
 
       {extracted.discount && (
         <div role="status" className="text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-3">
-          <b>Descompte detectat al document:</b> {extracted.discount}. Ajusta els preus manualment si cal — el
-          descompte no s&apos;aplica automàticament.
+          <b>Descompte global detectat al document:</b> {extracted.discount}. Ja s&apos;ha restat del total —
+          revisa que sigui correcte.
         </div>
       )}
 
@@ -139,7 +141,7 @@ export default function ExtractedLinesReview({
                 <td className="px-3 py-1.5">
                   <input
                     aria-label="Descompte"
-                    placeholder="—"
+                    placeholder="10%"
                     value={l.discount}
                     onChange={(e) => setLine(i, { discount: e.target.value })}
                     className="w-full rounded-md border border-transparent px-1.5 py-1 text-sm text-amber-700 outline-none transition-colors focus:border-[var(--focus)]"
@@ -172,9 +174,21 @@ export default function ExtractedLinesReview({
         <Button variant="secondary" onClick={addLine}>
           + Línia
         </Button>
-        <span className="font-bold text-[var(--navy)] text-base">
-          {total.toLocaleString("nl-NL", { style: "currency", currency: "EUR" })}
-        </span>
+        {extracted.discount ? (
+          <div className="text-right text-sm">
+            <div className="text-[var(--muted)]">
+              Subtotal: {subtotal.toLocaleString("nl-NL", { style: "currency", currency: "EUR" })}
+            </div>
+            <div className="text-amber-700">Descompte global: {extracted.discount}</div>
+            <div className="font-bold text-[var(--navy)] text-base">
+              {total.toLocaleString("nl-NL", { style: "currency", currency: "EUR" })}
+            </div>
+          </div>
+        ) : (
+          <span className="font-bold text-[var(--navy)] text-base">
+            {total.toLocaleString("nl-NL", { style: "currency", currency: "EUR" })}
+          </span>
+        )}
       </div>
 
       {error && (
