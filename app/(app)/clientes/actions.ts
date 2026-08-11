@@ -71,6 +71,7 @@ export async function getCombinedLinesAction(
         qty: l.qty != null ? String(l.qty) : "",
         price: l.price != null ? String(l.price) : "",
         priceText: l.price_text ?? "",
+        discount: "",
       });
     }
   }

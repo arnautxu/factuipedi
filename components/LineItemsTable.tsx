@@ -126,6 +126,7 @@ export default function LineItemsTable({
               <th className="px-3 py-2">Omschrijving</th>
               <th className="px-3 py-2 w-20">Aantal</th>
               <th className="px-3 py-2 w-28">Prijs</th>
+              <th className="px-3 py-2 w-24">Korting</th>
               <th className="px-3 py-2 w-28">Bedrag</th>
               <th className="px-3 py-2 w-8" />
             </tr>
@@ -235,6 +236,15 @@ export default function LineItemsTable({
                       value={l.price}
                       placeholder={l.priceText || ""}
                       onChange={(e) => setLine(i, { price: e.target.value })}
+                    />
+                  </td>
+                  <td className="px-3 py-1.5">
+                    <input
+                      aria-label="Korting"
+                      placeholder="—"
+                      className="w-full rounded-md border border-transparent px-1.5 py-1 text-sm text-amber-700 outline-none transition-colors focus:border-[var(--focus)]"
+                      value={l.discount}
+                      onChange={(e) => setLine(i, { discount: e.target.value })}
                     />
                   </td>
                   <td className="px-3 py-1.5 text-sm">

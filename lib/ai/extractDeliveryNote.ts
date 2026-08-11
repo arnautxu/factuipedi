@@ -6,11 +6,13 @@ export type ExtractedLine = {
   description: string;
   qty: string;
   price: string;
+  discount: string;
 };
 
 export type ExtractedDeliveryNote = {
   patient_name: string;
   date: string;
+  discount: string;
   lines: ExtractedLine[];
 };
 
@@ -19,6 +21,11 @@ const RESPONSE_SCHEMA = {
   properties: {
     patient_name: { type: Type.STRING, description: "Nom del pacient/client, buit si no apareix" },
     date: { type: Type.STRING, description: "Data del document tal com apareix, buit si no apareix" },
+    discount: {
+      type: Type.STRING,
+      description:
+        "Descompte global aplicat al total del document tal com apareix (p. ex. '10%' o '-5,00'), buit si no n'hi ha",
+    },
     lines: {
       type: Type.ARRAY,
       items: {
@@ -28,6 +35,10 @@ const RESPONSE_SCHEMA = {
           description: { type: Type.STRING, description: "Descripció de la línia de producte/servei" },
           qty: { type: Type.STRING, description: "Quantitat com a text numèric, buit si no apareix" },
           price: { type: Type.STRING, description: "Preu unitari com a text numèric (sense símbol de moneda), buit si no apareix" },
+          discount: {
+            type: Type.STRING,
+            description: "Descompte aplicat específicament a aquesta línia tal com apareix (p. ex. '10%'), buit si no n'hi ha",
+          },
         },
         required: ["description"],
       },
@@ -42,6 +53,8 @@ Extreu:
 - El nom del pacient/client si apareix.
 - La data del document si apareix.
 - Totes les línies de producte/servei amb el seu codi (si en té), descripció, quantitat i preu unitari.
+- Si alguna línia té un descompte específic (percentatge o import), indica'l tal com apareix.
+- Si hi ha un descompte global aplicat al total del document (percentatge o import, sovint prop del total o subtotal), indica'l tal com apareix.
 
 Si un camp no apareix al document, deixa'l com a cadena buida. No inventis dades que no hi siguin. Retorna només les línies que representen productes o serveis facturables, no totals ni subtotals.`;
 
@@ -73,11 +86,13 @@ export async function extractDeliveryNoteFromPdf(pdfBytes: Uint8Array): Promise<
   return {
     patient_name: parsed.patient_name ?? "",
     date: parsed.date ?? "",
+    discount: (parsed.discount ?? "").trim(),
     lines: (parsed.lines ?? []).map((l) => ({
       code: l.code ?? "",
       description: l.description ?? "",
       qty: normalizeNumber(l.qty),
       price: normalizeNumber(l.price),
+      discount: (l.discount ?? "").trim(),
     })),
   };
 }

@@ -22,7 +22,14 @@ export default function ExtractedLinesReview({
   const [patientName, setPatientName] = useState(extracted.patient_name);
   const [date, setDate] = useState(extracted.date);
   const [lines, setLines] = useState<LineItem[]>(
-    extracted.lines.map((l) => ({ code: l.code, description: l.description, qty: l.qty, price: l.price, priceText: "" }))
+    extracted.lines.map((l) => ({
+      code: l.code,
+      description: l.description,
+      qty: l.qty,
+      price: l.price,
+      priceText: "",
+      discount: l.discount,
+    }))
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +46,7 @@ export default function ExtractedLinesReview({
 
   const addLine = () => {
     idsRef.current.push(nextIdRef.current++);
-    setLines((ls) => [...ls, { code: "", description: "", qty: "", price: "", priceText: "" }]);
+    setLines((ls) => [...ls, { code: "", description: "", qty: "", price: "", priceText: "", discount: "" }]);
   };
 
   const removeLine = (i: number) => {
@@ -67,6 +74,13 @@ export default function ExtractedLinesReview({
         Revisa i corregeix les línies extretes per IA abans de desar-les — la precisió pot variar segons el disseny del document original.
       </div>
 
+      {extracted.discount && (
+        <div role="status" className="text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-3">
+          <b>Descompte detectat al document:</b> {extracted.discount}. Ajusta els preus manualment si cal — el
+          descompte no s&apos;aplica automàticament.
+        </div>
+      )}
+
       <Card className="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-4">
         <Field id="extracted-patient-name" label="Nom del pacient" value={patientName} onChange={setPatientName} />
         <Field id="extracted-date" label="Data" value={date} onChange={setDate} />
@@ -80,6 +94,7 @@ export default function ExtractedLinesReview({
               <th className="px-3 py-2">Descripció</th>
               <th className="px-3 py-2 w-20">Qty</th>
               <th className="px-3 py-2 w-28">Preu</th>
+              <th className="px-3 py-2 w-24">Descompte</th>
               <th className="px-3 py-2 w-8" />
             </tr>
           </thead>
@@ -121,6 +136,15 @@ export default function ExtractedLinesReview({
                     className="w-full rounded-md border border-transparent px-1.5 py-1 text-sm outline-none transition-colors focus:border-[var(--focus)]"
                   />
                 </td>
+                <td className="px-3 py-1.5">
+                  <input
+                    aria-label="Descompte"
+                    placeholder="—"
+                    value={l.discount}
+                    onChange={(e) => setLine(i, { discount: e.target.value })}
+                    className="w-full rounded-md border border-transparent px-1.5 py-1 text-sm text-amber-700 outline-none transition-colors focus:border-[var(--focus)]"
+                  />
+                </td>
                 <td className="px-2 py-1.5 text-center">
                   <button
                     type="button"
@@ -135,7 +159,7 @@ export default function ExtractedLinesReview({
             ))}
             {lines.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-3 py-6 text-center text-[var(--muted)]">
+                <td colSpan={6} className="px-3 py-6 text-center text-[var(--muted)]">
                   No s&apos;ha extret cap línia. Afegeix-les manualment si cal.
                 </td>
               </tr>
