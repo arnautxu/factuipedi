@@ -144,7 +144,7 @@ export default function ExtractedLinesReview({
                     placeholder="10%"
                     value={l.discount}
                     onChange={(e) => setLine(i, { discount: e.target.value })}
-                    className="w-full rounded-md border border-transparent px-1.5 py-1 text-sm text-amber-700 outline-none transition-colors focus:border-[var(--focus)]"
+                    className="w-full rounded-md border border-transparent px-1.5 py-1 text-sm text-amber-700 outline-none transition-colors placeholder:text-[var(--muted)] focus:border-[var(--focus)]"
                   />
                 </td>
                 <td className="px-2 py-1.5 text-center">
