@@ -26,7 +26,7 @@ export default function ExtractedLinesReview({
     extracted.lines.map((l) => ({
       code: l.code,
       description: l.description,
-      qty: l.qty,
+      qty: l.qty || "1",
       price: l.price,
       priceText: "",
       discount: l.discount,
@@ -47,7 +47,7 @@ export default function ExtractedLinesReview({
 
   const addLine = () => {
     idsRef.current.push(nextIdRef.current++);
-    setLines((ls) => [...ls, { code: "", description: "", qty: "", price: "", priceText: "", discount: "" }]);
+    setLines((ls) => [...ls, { code: "", description: "", qty: "1", price: "", priceText: "", discount: "" }]);
   };
 
   const removeLine = (i: number) => {
@@ -78,7 +78,7 @@ export default function ExtractedLinesReview({
 
       {extracted.discount && (
         <div role="status" className="text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-3">
-          <b>Descompte global detectat al document:</b> {extracted.discount}. Ja s&apos;ha restat del total —
+          <b>Descompte global detectat al document:</b> {extracted.discount}%. Ja s&apos;ha restat del total —
           revisa que sigui correcte.
         </div>
       )}
@@ -141,7 +141,7 @@ export default function ExtractedLinesReview({
                 <td className="px-3 py-1.5">
                   <input
                     aria-label="Descompte"
-                    placeholder="10%"
+                    placeholder="%"
                     value={l.discount}
                     onChange={(e) => setLine(i, { discount: e.target.value })}
                     className="w-full rounded-md border border-transparent px-1.5 py-1 text-sm text-amber-700 outline-none transition-colors placeholder:text-[var(--muted)] focus:border-[var(--focus)]"
@@ -179,7 +179,7 @@ export default function ExtractedLinesReview({
             <div className="text-[var(--muted)]">
               Subtotal: {subtotal.toLocaleString("nl-NL", { style: "currency", currency: "EUR" })}
             </div>
-            <div className="text-amber-700">Descompte global: {extracted.discount}</div>
+            <div className="text-amber-700">Descompte global: {extracted.discount}%</div>
             <div className="font-bold text-[var(--navy)] text-base">
               {total.toLocaleString("nl-NL", { style: "currency", currency: "EUR" })}
             </div>

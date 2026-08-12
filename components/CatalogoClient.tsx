@@ -214,6 +214,55 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
             </tr>
           </thead>
           <tbody>
+            <tr className="bg-slate-50">
+              <td className="px-3 py-1.5"></td>
+              <td className="px-3 py-1.5">
+                <input
+                  aria-label="Categoria del nou producte"
+                  value={newDraft.cat}
+                  onChange={(e) => setNewDraft({ ...newDraft, cat: e.target.value })}
+                  placeholder="Categoria"
+                  className="w-full rounded-md border border-[var(--line)] px-1.5 py-1 text-xs outline-none transition-shadow focus:ring-2 focus:ring-[var(--focus)]"
+                />
+              </td>
+              <td className="px-3 py-1.5">
+                <input
+                  aria-label="Codi del nou producte"
+                  value={newDraft.code}
+                  onChange={(e) => setNewDraft({ ...newDraft, code: e.target.value })}
+                  placeholder="Codi"
+                  className="w-full rounded-md border border-[var(--line)] px-1.5 py-1 text-sm outline-none transition-shadow focus:ring-2 focus:ring-[var(--focus)]"
+                />
+              </td>
+              <td className="px-3 py-1.5">
+                <input
+                  aria-label="Descripció del nou producte"
+                  value={newDraft.description}
+                  onChange={(e) => setNewDraft({ ...newDraft, description: e.target.value })}
+                  placeholder="Descripció"
+                  className="w-full rounded-md border border-[var(--line)] px-1.5 py-1 text-sm outline-none transition-shadow focus:ring-2 focus:ring-[var(--focus)]"
+                />
+              </td>
+              <td className="px-3 py-1.5">
+                <input
+                  aria-label="Preu del nou producte"
+                  value={newDraft.price}
+                  onChange={(e) => setNewDraft({ ...newDraft, price: e.target.value })}
+                  placeholder="Preu"
+                  className="w-full rounded-md border border-[var(--line)] px-1.5 py-1 text-sm outline-none transition-shadow focus:ring-2 focus:ring-[var(--focus)]"
+                />
+              </td>
+              <td className="px-3 py-1.5">
+                <button
+                  type="button"
+                  onClick={handleCreate}
+                  className="rounded px-1.5 py-1 text-xs font-semibold text-[var(--navy)] transition-colors duration-150 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
+                >
+                  + Afegir
+                </button>
+              </td>
+            </tr>
+
             {filtered.map((item, i) => {
               const isEditing = editingId === item.id;
               return (
@@ -322,55 +371,6 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
                 </tr>
               );
             })}
-
-            <tr className="bg-slate-50">
-              <td className="px-3 py-1.5"></td>
-              <td className="px-3 py-1.5">
-                <input
-                  aria-label="Categoria del nou producte"
-                  value={newDraft.cat}
-                  onChange={(e) => setNewDraft({ ...newDraft, cat: e.target.value })}
-                  placeholder="Categoria"
-                  className="w-full rounded-md border border-[var(--line)] px-1.5 py-1 text-xs outline-none transition-shadow focus:ring-2 focus:ring-[var(--focus)]"
-                />
-              </td>
-              <td className="px-3 py-1.5">
-                <input
-                  aria-label="Codi del nou producte"
-                  value={newDraft.code}
-                  onChange={(e) => setNewDraft({ ...newDraft, code: e.target.value })}
-                  placeholder="Codi"
-                  className="w-full rounded-md border border-[var(--line)] px-1.5 py-1 text-sm outline-none transition-shadow focus:ring-2 focus:ring-[var(--focus)]"
-                />
-              </td>
-              <td className="px-3 py-1.5">
-                <input
-                  aria-label="Descripció del nou producte"
-                  value={newDraft.description}
-                  onChange={(e) => setNewDraft({ ...newDraft, description: e.target.value })}
-                  placeholder="Descripció"
-                  className="w-full rounded-md border border-[var(--line)] px-1.5 py-1 text-sm outline-none transition-shadow focus:ring-2 focus:ring-[var(--focus)]"
-                />
-              </td>
-              <td className="px-3 py-1.5">
-                <input
-                  aria-label="Preu del nou producte"
-                  value={newDraft.price}
-                  onChange={(e) => setNewDraft({ ...newDraft, price: e.target.value })}
-                  placeholder="Preu"
-                  className="w-full rounded-md border border-[var(--line)] px-1.5 py-1 text-sm outline-none transition-shadow focus:ring-2 focus:ring-[var(--focus)]"
-                />
-              </td>
-              <td className="px-3 py-1.5">
-                <button
-                  type="button"
-                  onClick={handleCreate}
-                  className="rounded px-1.5 py-1 text-xs font-semibold text-[var(--navy)] transition-colors duration-150 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
-                >
-                  + Afegir
-                </button>
-              </td>
-            </tr>
           </tbody>
         </table>
         {filtered.length === 0 && <p className="text-sm text-[var(--muted)] px-5 py-6">Cap producte trobat.</p>}

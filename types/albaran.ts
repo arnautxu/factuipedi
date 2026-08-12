@@ -4,14 +4,13 @@ export type LineItem = {
   qty: string;
   price: string;
   priceText: string;
-  // Nota informativa de descompte (p. ex. "10%"): no s'inclou en el càlcul del
-  // Bedrag ni es desa a la base de dades — és un recordatori perquè qui revisa
-  // ajusti el preu manualment.
+  // Descompte en percentatge (p. ex. "10"): es resta del Bedrag de la línia,
+  // però no es desa a la base de dades (és efímer, només per a aquesta sessió).
   discount: string;
 };
 
 export function newLine(): LineItem {
-  return { code: "", description: "", qty: "", price: "", priceText: "", discount: "" };
+  return { code: "", description: "", qty: "1", price: "", priceText: "", discount: "" };
 }
 
 export type AlbaranHeader = {

@@ -240,7 +240,7 @@ export default function LineItemsTable({
                   <td className="px-3 py-1.5">
                     <input
                       aria-label="Korting"
-                      placeholder="10%"
+                      placeholder="%"
                       className="w-full rounded-md border border-transparent px-1.5 py-1 text-sm text-amber-700 outline-none transition-colors placeholder:text-[var(--muted)] focus:border-[var(--focus)]"
                       value={l.discount}
                       onChange={(e) => setLine(i, { discount: e.target.value })}

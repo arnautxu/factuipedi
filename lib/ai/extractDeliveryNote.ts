@@ -24,7 +24,7 @@ const RESPONSE_SCHEMA = {
     discount: {
       type: Type.STRING,
       description:
-        "Descompte global aplicat al total del document tal com apareix (p. ex. '10%' o '-5,00'), buit si no n'hi ha",
+        "Percentatge de descompte global aplicat al total del document, només el número (p. ex. '10' per a un 10%). Buit si no n'hi ha o si el descompte no és un percentatge.",
     },
     lines: {
       type: Type.ARRAY,
@@ -37,7 +37,8 @@ const RESPONSE_SCHEMA = {
           price: { type: Type.STRING, description: "Preu unitari com a text numèric (sense símbol de moneda), buit si no apareix" },
           discount: {
             type: Type.STRING,
-            description: "Descompte aplicat específicament a aquesta línia tal com apareix (p. ex. '10%'), buit si no n'hi ha",
+            description:
+              "Percentatge de descompte aplicat específicament a aquesta línia, només el número (p. ex. '10' per a un 10%). Buit si no n'hi ha o si el descompte no és un percentatge.",
           },
         },
         required: ["description"],
@@ -53,8 +54,9 @@ Extreu:
 - El nom del pacient/client si apareix.
 - La data del document si apareix.
 - Totes les línies de producte/servei amb el seu codi (si en té), descripció, quantitat i preu unitari.
-- Si alguna línia té un descompte específic (percentatge o import), indica'l tal com apareix.
-- Si hi ha un descompte global aplicat al total del document (percentatge o import, sovint prop del total o subtotal), indica'l tal com apareix.
+- Si alguna línia té un descompte específic en percentatge, indica només el número (p. ex. "10" per a un 10%).
+- Si hi ha un descompte global en percentatge aplicat al total del document (sovint prop del total o subtotal), indica només el número.
+- Si un descompte del document és un import fix en diners en lloc d'un percentatge, deixa el camp de descompte corresponent buit — el sistema només admet descomptes en percentatge.
 
 Si un camp no apareix al document, deixa'l com a cadena buida. No inventis dades que no hi siguin. Retorna només les línies que representen productes o serveis facturables, no totals ni subtotals.`;
 

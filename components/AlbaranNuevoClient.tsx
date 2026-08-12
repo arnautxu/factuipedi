@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AlbaranForm from "@/components/AlbaranForm";
 import LineItemsTable from "@/components/LineItemsTable";
 import ClientPicker from "@/components/ClientPicker";
@@ -10,19 +10,65 @@ import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { CatalogEntry } from "@/types/catalog";
 import type { Client } from "@/types/database";
-import { emptyHeader, newLine, type LineItem } from "@/types/albaran";
+import { emptyHeader, newLine, type AlbaranHeader, type LineItem } from "@/types/albaran";
 import { generateAlbaranPdf, downloadPdf } from "@/lib/pdf/generateAlbaran";
 import { saveAlbaranAction } from "@/app/(app)/albaran/actions";
+
+const DRAFT_KEY = "albaran-nuevo-draft";
+
+type Draft = { header: AlbaranHeader; lines: LineItem[]; clientId: string | null };
 
 export default function AlbaranNuevoClient({ catalog, clients }: { catalog: CatalogEntry[]; clients: Client[] }) {
   const [header, setHeader] = useState(emptyHeader());
   const [lines, setLines] = useState<LineItem[]>([newLine(), newLine(), newLine()]);
   const [clientId, setClientId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
   const [confirmingNew, setConfirmingNew] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
 
   const reviewItems = catalog.filter((p) => p.priceText);
+
+  // Restaura l'esborrany desat (si n'hi ha) després del muntatge, per no
+  // perdre el formulari en curs si l'usuari navega a una altra pestanya i
+  // torna. Es fa en un efecte (no a l'estat inicial) per evitar un mismatch
+  // d'hidratació entre el render del servidor i el localStorage del client.
+  // `hydrated` és estat (no una ref) i es marca true en el mateix efecte que
+  // restaura les dades, perquè React apliqui totes dues coses juntes en un
+  // sol render — així l'efecte de desat de més avall mai s'executa amb els
+  // valors per defecte encara no substituïts (el que sobreescrivia l'esborrany).
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        const draft = JSON.parse(raw) as Partial<Draft>;
+        if (draft.header) setHeader(draft.header);
+        if (draft.lines?.length) setLines(draft.lines);
+        if (draft.clientId !== undefined) setClientId(draft.clientId);
+      }
+    } catch {
+      // Esborrany corrupte o localStorage no disponible — s'ignora i es comença de zero.
+    }
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ header, lines, clientId } satisfies Draft));
+    } catch {
+      // localStorage ple o no disponible — l'esborrany simplement no es desa.
+    }
+  }, [hydrated, header, lines, clientId]);
+
+  const clearDraft = () => {
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+    } catch {
+      // no-op
+    }
+  };
 
   const handleNew = () => {
     setHeader(emptyHeader());
@@ -30,6 +76,21 @@ export default function AlbaranNuevoClient({ catalog, clients }: { catalog: Cata
     setClientId(null);
     setMessage(null);
     setConfirmingNew(false);
+    clearDraft();
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setMessage(null);
+    try {
+      await saveAlbaranAction(clientId, header, lines);
+      setMessage({ type: "success", text: "Albarà desat correctament." });
+      clearDraft();
+    } catch (err) {
+      setMessage({ type: "error", text: "Error desant l'albarà: " + (err instanceof Error ? err.message : String(err)) });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleGeneratePdf = async () => {
@@ -40,14 +101,17 @@ export default function AlbaranNuevoClient({ catalog, clients }: { catalog: Cata
       downloadPdf(bytes, header.pakbonnummer);
       try {
         await saveAlbaranAction(clientId, header, lines);
+        clearDraft();
       } catch (saveErr) {
-        setMessage(
-          "El PDF s'ha descarregat, però no s'ha pogut desar a la base de dades: " +
-            (saveErr instanceof Error ? saveErr.message : String(saveErr))
-        );
+        setMessage({
+          type: "error",
+          text:
+            "El PDF s'ha descarregat, però no s'ha pogut desar a la base de dades: " +
+            (saveErr instanceof Error ? saveErr.message : String(saveErr)),
+        });
       }
     } catch (err) {
-      setMessage("Error generant el PDF: " + (err instanceof Error ? err.message : String(err)));
+      setMessage({ type: "error", text: "Error generant el PDF: " + (err instanceof Error ? err.message : String(err)) });
     } finally {
       setGenerating(false);
     }
@@ -67,6 +131,9 @@ export default function AlbaranNuevoClient({ catalog, clients }: { catalog: Cata
           <Button variant="secondary" onClick={() => setLines((ls) => [...ls, newLine()])}>
             + Línia
           </Button>
+          <Button variant="secondary" disabled={saving} onClick={handleSave}>
+            {saving ? "Desant…" : "Guardar"}
+          </Button>
           <Button disabled={generating} onClick={handleGeneratePdf}>
             {generating ? "Generant…" : "Descarregar PDF"}
           </Button>
@@ -74,8 +141,13 @@ export default function AlbaranNuevoClient({ catalog, clients }: { catalog: Cata
       </div>
 
       {message && (
-        <div role="alert" className="text-sm bg-white border border-[var(--line)] border-l-4 border-l-red-400 rounded-xl px-4 py-3">
-          {message}
+        <div
+          role={message.type === "error" ? "alert" : "status"}
+          className={`text-sm bg-white border border-[var(--line)] border-l-4 rounded-xl px-4 py-3 ${
+            message.type === "error" ? "border-l-red-400" : "border-l-[var(--teal-deep)]"
+          }`}
+        >
+          {message.text}
         </div>
       )}
 
