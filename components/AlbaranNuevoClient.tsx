@@ -98,18 +98,22 @@ export default function AlbaranNuevoClient({ catalog, clients }: { catalog: Cata
     setMessage(null);
     try {
       const bytes = await generateAlbaranPdf(header, lines);
-      downloadPdf(bytes, header.pakbonnummer);
+      // Es desa ABANS de descarregar: a Safari mòbil, l'acció de descàrrega
+      // d'un blob PDF pot interrompre una petició de xarxa concurrent (el
+      // Server Action de desar), provocant un "Load failed" encara que el
+      // PDF s'hagi generat bé. Desant primer evitem que la descàrrega
+      // interfereixi amb el desat.
       try {
         await saveAlbaranAction(clientId, header, lines);
         clearDraft();
       } catch (saveErr) {
         setMessage({
           type: "error",
-          text:
-            "El PDF s'ha descarregat, però no s'ha pogut desar a la base de dades: " +
-            (saveErr instanceof Error ? saveErr.message : String(saveErr)),
+          text: "No s'ha pogut desar l'albarà: " + (saveErr instanceof Error ? saveErr.message : String(saveErr)),
         });
+        return;
       }
+      downloadPdf(bytes, header.pakbonnummer);
     } catch (err) {
       setMessage({ type: "error", text: "Error generant el PDF: " + (err instanceof Error ? err.message : String(err)) });
     } finally {

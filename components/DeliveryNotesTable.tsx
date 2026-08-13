@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { DeliveryNote } from "@/types/database";
 import { generateAlbaranPdf, downloadPdf } from "@/lib/pdf/generateAlbaran";
 import { getCombinedLinesAction, saveCombinedInvoiceAction } from "@/app/(app)/clientes/actions";
@@ -36,8 +37,10 @@ export default function DeliveryNotesTable({ clientId, notes }: { clientId: stri
         return;
       }
       const bytes = await generateAlbaranPdf(header, lines);
-      downloadPdf(bytes, "combinada");
+      // Es desa abans de descarregar: a Safari mòbil, la descàrrega d'un PDF
+      // pot interrompre una petició de xarxa concurrent en curs.
       await saveCombinedInvoiceAction(clientId, header, lines);
+      downloadPdf(bytes, "combinada");
       router.refresh();
     } catch (err) {
       setError("Error generant la factura combinada: " + (err instanceof Error ? err.message : String(err)));
@@ -80,7 +83,14 @@ export default function DeliveryNotesTable({ clientId, notes }: { clientId: stri
                     />
                   )}
                 </td>
-                <td className="px-5 py-2.5 font-medium">{n.pakbonnummer || "—"}</td>
+                <td className="px-5 py-2.5 font-medium">
+                  <Link
+                    href={`/clientes/${clientId}/albaran/${n.id}`}
+                    className="rounded text-[var(--navy)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
+                  >
+                    {n.pakbonnummer || "(sense número)"}
+                  </Link>
+                </td>
                 <td className="px-5 py-2.5 text-[var(--muted)]">{n.uitgiftedatum || "—"}</td>
                 <td className="px-5 py-2.5 text-[var(--muted)] capitalize">{n.source}</td>
                 <td className="px-5 py-2.5 text-right">{eur(n.total)}</td>

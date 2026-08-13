@@ -212,6 +212,65 @@ export async function createDeliveryNoteWithLines(
   return noteRow;
 }
 
+export async function getDeliveryNote(id: string): Promise<DeliveryNote | null> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.from("delivery_notes").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  return data as DeliveryNote | null;
+}
+
+// Edita un albarà ja desat: actualitza la capçalera i substitueix totes les
+// línies (esborra + reinsereix, com que no tenim un id estable per línia des
+// del client per fer un diff).
+export async function updateDeliveryNoteWithLines(
+  noteId: string,
+  header: AlbaranHeader,
+  lines: LineItem[]
+): Promise<DeliveryNote> {
+  const supabase = createAdminClient();
+  const filled = lines.filter((l) => l.code || l.description);
+  const total = filled.reduce((s, l) => s + lineTotal(l), 0);
+
+  const { data: note, error: noteError } = await supabase
+    .from("delivery_notes")
+    .update({
+      pakbonnummer: header.pakbonnummer || null,
+      inkomstdatum: header.inkomstdatum || null,
+      uitgiftedatum: header.uitgiftedatum || null,
+      naam_patient: header.naam_patient || null,
+      geboortedatum: header.geboortedatum || null,
+      behandelaar: header.behandelaar || null,
+      klant_regel2: header.klant_regel2 || null,
+      kleur: header.kleur || null,
+      in_opdracht: header.in_opdracht || null,
+      total,
+    })
+    .eq("id", noteId)
+    .select()
+    .single();
+  if (noteError) throw noteError;
+  const noteRow = note as DeliveryNote;
+
+  const { error: deleteError } = await supabase.from("delivery_note_lines").delete().eq("delivery_note_id", noteId);
+  if (deleteError) throw deleteError;
+
+  if (filled.length) {
+    const rows: Partial<DeliveryNoteLine>[] = filled.map((l, i) => ({
+      delivery_note_id: noteId,
+      position: i,
+      code: l.code || null,
+      description: l.description || null,
+      qty: l.qty ? parseFloat(l.qty) : null,
+      price: l.price ? parseFloat(l.price) : null,
+      price_text: l.priceText || null,
+    }));
+    const { error: linesError } = await supabase.from("delivery_note_lines").insert(rows);
+    if (linesError) throw linesError;
+  }
+
+  return noteRow;
+}
+
 export async function getDeliveryNoteLines(deliveryNoteId: string): Promise<DeliveryNoteLine[]> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
