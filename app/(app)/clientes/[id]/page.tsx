@@ -20,27 +20,27 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-lg font-bold text-[var(--navy)]">{client.naam_patient || "(sense nom)"}</h1>
+          <h1 className="text-lg font-bold text-[var(--navy)]">{client.naam_patient || "(sin nombre)"}</h1>
           <Link
             href="/clientes"
             className="rounded text-xs text-[var(--muted)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
           >
-            ← Tornar a clients
+            ← Volver a clientes
           </Link>
         </div>
         <DeleteClientButton clientName={client.naam_patient ?? ""} action={boundDelete} />
       </div>
 
-      <ClientForm client={client} action={boundUpdate} submitLabel="Desar canvis" />
+      <ClientForm client={client} action={boundUpdate} submitLabel="Guardar cambios" />
 
       <Card className="overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--line)]">
-          <h2 className="text-sm font-bold text-[var(--navy)]">Albarans</h2>
+          <h2 className="text-sm font-bold text-[var(--navy)]">Albaranes</h2>
           <Link
             href={`/clientes/${id}/subir`}
             className="rounded text-xs font-semibold text-[var(--navy)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
           >
-            + Pujar albarà extern
+            + Subir albarán externo
           </Link>
         </div>
         <DeliveryNotesTable clientId={id} notes={notes} />

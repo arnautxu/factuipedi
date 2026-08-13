@@ -5,9 +5,9 @@ import { usePathname } from "next/navigation";
 import { logoutAction } from "@/app/(auth)/login/actions";
 
 const LINKS = [
-  { href: "/albaran/nuevo", label: "Nou albarà" },
-  { href: "/clientes", label: "Clients" },
-  { href: "/catalogo", label: "Catàleg" },
+  { href: "/albaran/nuevo", label: "Nuevo albarán" },
+  { href: "/clientes", label: "Clientes" },
+  { href: "/catalogo", label: "Catálogo" },
 ];
 
 export default function Navbar() {
@@ -48,7 +48,7 @@ export default function Navbar() {
             type="submit"
             className="rounded-lg px-1.5 sm:px-2 py-1.5 text-xs font-medium whitespace-nowrap text-[var(--muted)] transition-colors duration-150 ease-out hover:text-[var(--ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)] focus-visible:ring-offset-1"
           >
-            Sortir
+            Salir
           </button>
         </form>
       </div>

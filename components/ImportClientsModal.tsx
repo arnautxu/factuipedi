@@ -94,7 +94,7 @@ export function ImportClientsModal({
       try {
         const rows = parseCsvRows(String(reader.result));
         if (!rows.length) {
-          setError("El fitxer no té cap fila amb dades.");
+          setError("El archivo no tiene ninguna fila con datos.");
           return;
         }
         setRawRows(rows);
@@ -104,7 +104,7 @@ export function ImportClientsModal({
         setMapping(guessed);
         setStep("map");
       } catch (err) {
-        setError("Error llegint el CSV: " + (err instanceof Error ? err.message : String(err)));
+        setError("Error al leer el CSV: " + (err instanceof Error ? err.message : String(err)));
       }
     };
     reader.readAsText(file);
@@ -113,7 +113,7 @@ export function ImportClientsModal({
   const handleImport = () => {
     setError(null);
     if (!FIELDS.some((f) => mapping[f.key] != null)) {
-      setError("Selecciona almenys una columna per importar.");
+      setError("Selecciona al menos una columna para importar.");
       return;
     }
     const rows: Partial<Client>[] = [];
@@ -130,7 +130,7 @@ export function ImportClientsModal({
       if (hasValue) rows.push(rec);
     }
     if (!rows.length) {
-      setError("No s'ha trobat cap fila amb dades per importar.");
+      setError("No se ha encontrado ninguna fila con datos para importar.");
       return;
     }
     startTransition(async () => {
@@ -140,7 +140,7 @@ export function ImportClientsModal({
         setStep("done");
         onImported(count);
       } catch (err) {
-        setError("Error important: " + (err instanceof Error ? err.message : String(err)));
+        setError("Error al importar: " + (err instanceof Error ? err.message : String(err)));
       }
     });
   };
@@ -158,14 +158,14 @@ export function ImportClientsModal({
     >
       <div className="max-h-[85vh] overflow-y-auto p-6">
         <h2 id="import-clients-title" className="text-base font-bold text-[var(--ink)]">
-          Importar clients des de CSV
+          Importar clientes desde CSV
         </h2>
 
         {step === "pick" && (
           <div className="mt-4 space-y-4">
             <p className="text-sm text-[var(--muted)]">
-              Puja un fitxer CSV amb la teva base de dades de clients. Al pas següent podràs triar quina columna
-              correspon a cada camp.
+              Sube un archivo CSV con tu base de datos de clientes. En el siguiente paso podrás elegir qué columna
+              corresponde a cada campo.
             </p>
             <input
               ref={fileRef}
@@ -191,7 +191,7 @@ export function ImportClientsModal({
           <div className="mt-4 space-y-4">
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm text-[var(--muted)]">
-                {fileName} · {dataRows.length} files de dades detectades
+                {fileName} · {dataRows.length} filas de datos detectadas
               </p>
               <label className="flex items-center gap-2 text-xs text-[var(--muted)]">
                 <input
@@ -200,7 +200,7 @@ export function ImportClientsModal({
                   onChange={(e) => setHasHeader(e.target.checked)}
                   className="h-4 w-4 accent-[var(--navy)]"
                 />
-                La primera fila és la capçalera
+                La primera fila es la cabecera
               </label>
             </div>
 
@@ -235,7 +235,7 @@ export function ImportClientsModal({
             {dataRows.length > 0 && (
               <div>
                 <p className="text-xs font-semibold text-[var(--muted)] uppercase tracking-wide mb-1">
-                  Previsualització
+                  Vista previa
                 </p>
                 <div className="overflow-x-auto rounded-lg border border-[var(--line)]">
                   <table className="w-full text-xs">
@@ -272,10 +272,10 @@ export function ImportClientsModal({
 
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="secondary" onClick={onClose}>
-                Cancel·lar
+                Cancelar
               </Button>
               <Button disabled={pending} onClick={handleImport}>
-                {pending ? "Important…" : "Importar"}
+                {pending ? "Importando…" : "Importar"}
               </Button>
             </div>
           </div>
@@ -284,10 +284,10 @@ export function ImportClientsModal({
         {step === "done" && (
           <div className="mt-4 space-y-4">
             <p role="status" className="text-sm text-[var(--ink)]">
-              S&apos;han importat <b>{resultCount}</b> clients nous correctament.
+              Se han importado <b>{resultCount}</b> clientes nuevos correctamente.
             </p>
             <div className="flex justify-end">
-              <Button onClick={onClose}>Tancar</Button>
+              <Button onClick={onClose}>Cerrar</Button>
             </div>
           </div>
         )}

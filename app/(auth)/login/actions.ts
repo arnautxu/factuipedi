@@ -15,14 +15,14 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
   const expectedHash = process.env.APP_LOGIN_PASSWORD_HASH;
 
   if (!expectedUser || !expectedHash) {
-    return { error: "Servidor sense configurar (falten APP_LOGIN_USER/APP_LOGIN_PASSWORD_HASH)." };
+    return { error: "Servidor sin configurar (faltan APP_LOGIN_USER/APP_LOGIN_PASSWORD_HASH)." };
   }
 
   const userOk = username === expectedUser;
   const passOk = await bcrypt.compare(password, expectedHash);
 
   if (!userOk || !passOk) {
-    return { error: "Usuari o contrasenya incorrectes." };
+    return { error: "Usuario o contraseña incorrectos." };
   }
 
   const token = await createSessionToken(username);

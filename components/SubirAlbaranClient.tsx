@@ -39,13 +39,13 @@ export default function SubirAlbaranClient({ clientId }: { clientId: string }) {
         href={`/clientes/${clientId}`}
         className="rounded text-xs text-[var(--muted)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
       >
-        ← Tornar a la fitxa del client
+        ← Volver a la ficha del cliente
       </Link>
 
       <Card className="p-8 text-center">
         <p className="text-sm text-[var(--muted)] mb-4">
-          Puja un albarà en PDF rebut d&apos;un altre proveïdor. S&apos;extrauran les línies automàticament amb IA perquè les
-          revisis abans de desar-les.
+          Sube un albarán en PDF recibido de otro proveedor. Se extraerán las líneas automáticamente con IA para que las
+          revises antes de guardarlas.
         </p>
         <input
           ref={fileRef}
@@ -59,7 +59,7 @@ export default function SubirAlbaranClient({ clientId }: { clientId: string }) {
           }}
         />
         <Button disabled={state.status === "uploading"} onClick={() => fileRef.current?.click()}>
-          {state.status === "uploading" ? "Pujant i extraient…" : "Seleccionar PDF"}
+          {state.status === "uploading" ? "Subiendo y extrayendo…" : "Seleccionar PDF"}
         </Button>
 
         {state.status === "error" && (

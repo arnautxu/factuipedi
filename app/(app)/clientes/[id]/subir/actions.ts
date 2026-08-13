@@ -16,7 +16,7 @@ export async function uploadAndExtractAction(
 ): Promise<{ documentId: string; extracted: ExtractedDeliveryNote } | { error: string }> {
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
-    return { error: "Cap fitxer seleccionat." };
+    return { error: "Ningún archivo seleccionado." };
   }
 
   const doc = await uploadDeliveryNoteDocument(clientId, file);
@@ -28,7 +28,7 @@ export async function uploadAndExtractAction(
     return { documentId: doc.id, extracted };
   } catch (err) {
     await updateUploadedDocument(doc.id, { status: "failed" });
-    return { error: "Error extraient dades del PDF: " + (err instanceof Error ? err.message : String(err)) };
+    return { error: "Error al extraer datos del PDF: " + (err instanceof Error ? err.message : String(err)) };
   }
 }
 
@@ -47,6 +47,6 @@ export async function saveExtractedNoteAction(
     revalidatePath(`/clientes/${clientId}`);
     return { noteId: note.id };
   } catch (err) {
-    return { error: "Error desant l'albarà: " + (err instanceof Error ? err.message : String(err)) };
+    return { error: "Error al guardar el albarán: " + (err instanceof Error ? err.message : String(err)) };
   }
 }

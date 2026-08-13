@@ -258,7 +258,7 @@ export default function LineItemsTable({
                       type="button"
                       onClick={() => removeLine(i)}
                       className="inline-flex h-8 w-8 items-center justify-center rounded-md text-lg leading-none text-[var(--muted)] transition-colors duration-150 hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
-                      aria-label="Eliminar línia"
+                      aria-label="Eliminar línea"
                     >
                       ×
                     </button>
@@ -271,7 +271,7 @@ export default function LineItemsTable({
       </div>
 
       <div className="flex items-center justify-between mt-3 text-sm text-[var(--muted)]">
-        <span>{pageCount > 1 ? `${filledCount} línies · el PDF tindrà ${pageCount} pàgines` : `${filledCount} línies (1 pàgina)`}</span>
+        <span>{pageCount > 1 ? `${filledCount} líneas · el PDF tendrá ${pageCount} páginas` : `${filledCount} líneas (1 página)`}</span>
         <span className="font-bold text-[var(--navy)] text-base">{eur(total)}</span>
       </div>
     </div>

@@ -19,7 +19,7 @@ export function ConfirmDialog({
   title,
   description,
   confirmLabel = "Confirmar",
-  cancelLabel = "Cancel·lar",
+  cancelLabel = "Cancelar",
   onConfirm,
   onCancel,
   danger,

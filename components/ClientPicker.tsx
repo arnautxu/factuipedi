@@ -50,17 +50,17 @@ export default function ClientPicker({
   return (
     <div className="relative">
       <label htmlFor={inputId} className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wide mb-1">
-        Client existent
+        Cliente existente
       </label>
       {selected ? (
         <div className="flex items-center justify-between rounded-lg border border-[var(--line)] bg-[var(--tint)] px-3 py-2 text-sm">
-          <span className="font-medium text-[var(--navy)]">{selected.naam_patient || "(sense nom)"}</span>
+          <span className="font-medium text-[var(--navy)]">{selected.naam_patient || "(sin nombre)"}</span>
           <button
             type="button"
             onClick={() => onSelect(null, {})}
             className="rounded px-1.5 py-1 text-xs text-[var(--muted)] transition-colors duration-150 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
           >
-            Treure selecció
+            Quitar selección
           </button>
         </div>
       ) : (
@@ -93,7 +93,7 @@ export default function ClientPicker({
               setActiveIndex(-1);
             }
           }}
-          placeholder="Cerca un client per omplir el formulari automàticament…"
+          placeholder="Busca un cliente para rellenar el formulario automáticamente…"
           className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm outline-none transition-shadow duration-150 ease-out focus:ring-2 focus:ring-[var(--focus)]"
         />
       )}
@@ -114,7 +114,7 @@ export default function ClientPicker({
               }}
               className={`px-3 py-2 text-sm cursor-pointer transition-colors ${idx === activeIndex ? "bg-[var(--tint)]" : "hover:bg-slate-50"}`}
             >
-              <div className="font-medium text-[var(--navy)]">{c.naam_patient || "(sense nom)"}</div>
+              <div className="font-medium text-[var(--navy)]">{c.naam_patient || "(sin nombre)"}</div>
               <div className="text-xs text-[var(--muted)]">{[c.behandelaar, c.klant_regel2].filter(Boolean).join(" · ")}</div>
             </div>
           ))}

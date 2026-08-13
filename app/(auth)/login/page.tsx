@@ -16,12 +16,12 @@ export default function LoginPage() {
       >
         <div>
           <h1 className="text-lg font-bold text-[var(--navy)]">NoaDentLab</h1>
-          <p className="text-sm text-[var(--muted)]">Accés intern</p>
+          <p className="text-sm text-[var(--muted)]">Acceso interno</p>
         </div>
 
         <div className="space-y-1">
           <label htmlFor="username" className="text-sm font-medium text-[var(--ink)]">
-            Usuari
+            Usuario
           </label>
           <input
             id="username"
@@ -35,7 +35,7 @@ export default function LoginPage() {
 
         <div className="space-y-1">
           <label htmlFor="password" className="text-sm font-medium text-[var(--ink)]">
-            Contrasenya
+            Contraseña
           </label>
           <input
             id="password"
@@ -57,7 +57,7 @@ export default function LoginPage() {
           disabled={pending}
           className="w-full rounded-lg bg-[var(--navy)] text-white text-sm font-semibold py-2.5 transition-colors duration-150 ease-out hover:bg-[var(--navy-deep)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)] focus-visible:ring-offset-2 disabled:opacity-50"
         >
-          {pending ? "Entrant…" : "Entrar"}
+          {pending ? "Entrando…" : "Entrar"}
         </button>
       </form>
     </div>

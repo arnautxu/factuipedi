@@ -19,26 +19,26 @@ export type ExtractedDeliveryNote = {
 const RESPONSE_SCHEMA = {
   type: Type.OBJECT,
   properties: {
-    patient_name: { type: Type.STRING, description: "Nom del pacient/client, buit si no apareix" },
-    date: { type: Type.STRING, description: "Data del document tal com apareix, buit si no apareix" },
+    patient_name: { type: Type.STRING, description: "Nombre del paciente/cliente, vacío si no aparece" },
+    date: { type: Type.STRING, description: "Fecha del documento tal como aparece, vacía si no aparece" },
     discount: {
       type: Type.STRING,
       description:
-        "Percentatge de descompte global aplicat al total del document, només el número (p. ex. '10' per a un 10%). Buit si no n'hi ha o si el descompte no és un percentatge.",
+        "Porcentaje de descuento global aplicado al total del documento, solo el número (p. ej. '10' para un 10%). Vacío si no hay o si el descuento no es un porcentaje.",
     },
     lines: {
       type: Type.ARRAY,
       items: {
         type: Type.OBJECT,
         properties: {
-          code: { type: Type.STRING, description: "Codi de producte, buit si no n'hi ha" },
-          description: { type: Type.STRING, description: "Descripció de la línia de producte/servei" },
-          qty: { type: Type.STRING, description: "Quantitat com a text numèric, buit si no apareix" },
-          price: { type: Type.STRING, description: "Preu unitari com a text numèric (sense símbol de moneda), buit si no apareix" },
+          code: { type: Type.STRING, description: "Código de producto, vacío si no tiene" },
+          description: { type: Type.STRING, description: "Descripción de la línea de producto/servicio" },
+          qty: { type: Type.STRING, description: "Cantidad como texto numérico, vacía si no aparece" },
+          price: { type: Type.STRING, description: "Precio unitario como texto numérico (sin símbolo de moneda), vacío si no aparece" },
           discount: {
             type: Type.STRING,
             description:
-              "Percentatge de descompte aplicat específicament a aquesta línia, només el número (p. ex. '10' per a un 10%). Buit si no n'hi ha o si el descompte no és un percentatge.",
+              "Porcentaje de descuento aplicado específicamente a esta línea, solo el número (p. ej. '10' para un 10%). Vacío si no hay o si el descuento no es un porcentaje.",
           },
         },
         required: ["description"],
@@ -48,17 +48,17 @@ const RESPONSE_SCHEMA = {
   required: ["lines"],
 };
 
-const PROMPT = `Ets un assistent que extreu dades estructurades d'albarans/notes de lliurament d'un laboratori dental rebuts de proveïdors externs. El document pot estar en neerlandès, espanyol o anglès, i el disseny varia segons el proveïdor.
+const PROMPT = `Eres un asistente que extrae datos estructurados de albaranes/notas de entrega de un laboratorio dental recibidos de proveedores externos. El documento puede estar en neerlandés, español o inglés, y el diseño varía según el proveedor.
 
-Extreu:
-- El nom del pacient/client si apareix.
-- La data del document si apareix.
-- Totes les línies de producte/servei amb el seu codi (si en té), descripció, quantitat i preu unitari.
-- Si alguna línia té un descompte específic en percentatge, indica només el número (p. ex. "10" per a un 10%).
-- Si hi ha un descompte global en percentatge aplicat al total del document (sovint prop del total o subtotal), indica només el número.
-- Si un descompte del document és un import fix en diners en lloc d'un percentatge, deixa el camp de descompte corresponent buit — el sistema només admet descomptes en percentatge.
+Extrae:
+- El nombre del paciente/cliente si aparece.
+- La fecha del documento si aparece.
+- Todas las líneas de producto/servicio con su código (si tiene), descripción, cantidad y precio unitario.
+- Si alguna línea tiene un descuento específico en porcentaje, indica solo el número (p. ej. "10" para un 10%).
+- Si hay un descuento global en porcentaje aplicado al total del documento (a menudo cerca del total o subtotal), indica solo el número.
+- Si un descuento del documento es un importe fijo en dinero en lugar de un porcentaje, deja el campo de descuento correspondiente vacío — el sistema solo admite descuentos en porcentaje.
 
-Si un camp no apareix al document, deixa'l com a cadena buida. No inventis dades que no hi siguin. Retorna només les línies que representen productes o serveis facturables, no totals ni subtotals.`;
+Si un campo no aparece en el documento, déjalo como cadena vacía. No inventes datos que no estén. Devuelve solo las líneas que representan productos o servicios facturables, no totales ni subtotales.`;
 
 export async function extractDeliveryNoteFromPdf(pdfBytes: Uint8Array): Promise<ExtractedDeliveryNote> {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -82,7 +82,7 @@ export async function extractDeliveryNoteFromPdf(pdfBytes: Uint8Array): Promise<
   });
 
   const text = response.text;
-  if (!text) throw new Error("Gemini no ha retornat cap resposta");
+  if (!text) throw new Error("Gemini no ha devuelto ninguna respuesta");
 
   const parsed = JSON.parse(text) as ExtractedDeliveryNote;
   return {

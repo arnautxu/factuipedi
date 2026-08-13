@@ -73,19 +73,19 @@ export default function ExtractedLinesReview({
   return (
     <div className="space-y-4">
       <div className="text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-3">
-        Revisa i corregeix les línies extretes per IA abans de desar-les — la precisió pot variar segons el disseny del document original.
+        Revisa y corrige las líneas extraídas por IA antes de guardarlas — la precisión puede variar según el diseño del documento original.
       </div>
 
       {extracted.discount && (
         <div role="status" className="text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-3">
-          <b>Descompte global detectat al document:</b> {extracted.discount}%. Ja s&apos;ha restat del total —
-          revisa que sigui correcte.
+          <b>Descuento global detectado en el documento:</b> {extracted.discount}%. Ya se ha restado del total —
+          revisa que sea correcto.
         </div>
       )}
 
       <Card className="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-4">
-        <Field id="extracted-patient-name" label="Nom del pacient" value={patientName} onChange={setPatientName} />
-        <Field id="extracted-date" label="Data" value={date} onChange={setDate} />
+        <Field id="extracted-patient-name" label="Nombre del paciente" value={patientName} onChange={setPatientName} />
+        <Field id="extracted-date" label="Fecha" value={date} onChange={setDate} />
       </Card>
 
       <div className="overflow-x-auto rounded-xl border border-[var(--line)] bg-white">
@@ -93,10 +93,10 @@ export default function ExtractedLinesReview({
           <thead>
             <tr className="text-left text-xs uppercase tracking-wide text-[var(--muted)] border-b border-[var(--line)]">
               <th className="px-3 py-2 w-24">Cód</th>
-              <th className="px-3 py-2">Descripció</th>
+              <th className="px-3 py-2">Descripción</th>
               <th className="px-3 py-2 w-20">Qty</th>
-              <th className="px-3 py-2 w-28">Preu</th>
-              <th className="px-3 py-2 w-24">Descompte</th>
+              <th className="px-3 py-2 w-28">Precio</th>
+              <th className="px-3 py-2 w-24">Descuento</th>
               <th className="px-3 py-2 w-8" />
             </tr>
           </thead>
@@ -116,7 +116,7 @@ export default function ExtractedLinesReview({
                 </td>
                 <td className="px-3 py-1.5">
                   <input
-                    aria-label="Descripció"
+                    aria-label="Descripción"
                     value={l.description}
                     onChange={(e) => setLine(i, { description: e.target.value })}
                     className="w-full rounded-md border border-transparent px-1.5 py-1 text-sm outline-none transition-colors focus:border-[var(--focus)]"
@@ -132,7 +132,7 @@ export default function ExtractedLinesReview({
                 </td>
                 <td className="px-3 py-1.5">
                   <input
-                    aria-label="Preu"
+                    aria-label="Precio"
                     value={l.price}
                     onChange={(e) => setLine(i, { price: e.target.value })}
                     className="w-full rounded-md border border-transparent px-1.5 py-1 text-sm outline-none transition-colors focus:border-[var(--focus)]"
@@ -140,7 +140,7 @@ export default function ExtractedLinesReview({
                 </td>
                 <td className="px-3 py-1.5">
                   <input
-                    aria-label="Descompte"
+                    aria-label="Descuento"
                     placeholder="%"
                     value={l.discount}
                     onChange={(e) => setLine(i, { discount: e.target.value })}
@@ -151,7 +151,7 @@ export default function ExtractedLinesReview({
                   <button
                     type="button"
                     onClick={() => removeLine(i)}
-                    aria-label="Eliminar línia"
+                    aria-label="Eliminar línea"
                     className="inline-flex h-8 w-8 items-center justify-center rounded-md text-lg leading-none text-[var(--muted)] transition-colors duration-150 hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
                   >
                     ×
@@ -162,7 +162,7 @@ export default function ExtractedLinesReview({
             {lines.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-3 py-6 text-center text-[var(--muted)]">
-                  No s&apos;ha extret cap línia. Afegeix-les manualment si cal.
+                  No se ha extraído ninguna línea. Añádelas manualmente si es necesario.
                 </td>
               </tr>
             )}
@@ -172,14 +172,14 @@ export default function ExtractedLinesReview({
 
       <div className="flex items-center justify-between">
         <Button variant="secondary" onClick={addLine}>
-          + Línia
+          + Línea
         </Button>
         {extracted.discount ? (
           <div className="text-right text-sm">
             <div className="text-[var(--muted)]">
               Subtotal: {subtotal.toLocaleString("nl-NL", { style: "currency", currency: "EUR" })}
             </div>
-            <div className="text-amber-700">Descompte global: {extracted.discount}%</div>
+            <div className="text-amber-700">Descuento global: {extracted.discount}%</div>
             <div className="font-bold text-[var(--navy)] text-base">
               {total.toLocaleString("nl-NL", { style: "currency", currency: "EUR" })}
             </div>
@@ -198,7 +198,7 @@ export default function ExtractedLinesReview({
       )}
 
       <Button disabled={saving} onClick={handleSave}>
-        {saving ? "Desant…" : "Desar a la fitxa del client"}
+        {saving ? "Guardando…" : "Guardar en la ficha del cliente"}
       </Button>
     </div>
   );

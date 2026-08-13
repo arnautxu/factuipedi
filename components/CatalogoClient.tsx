@@ -73,7 +73,7 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
         setItems((prev) => prev.map((it) => (it.id === id ? updated : it)));
         setEditingId(null);
       } catch (err) {
-        setMessage("Error desant el canvi: " + (err instanceof Error ? err.message : String(err)));
+        setMessage("Error al guardar el cambio: " + (err instanceof Error ? err.message : String(err)));
       }
     });
   };
@@ -87,7 +87,7 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
         await deleteItemAction(id);
         setItems((prev) => prev.filter((it) => it.id !== id));
       } catch (err) {
-        setMessage("Error eliminant: " + (err instanceof Error ? err.message : String(err)));
+        setMessage("Error al eliminar: " + (err instanceof Error ? err.message : String(err)));
       }
     });
   };
@@ -103,7 +103,7 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
       try {
         await moveItemAction(id, direction);
       } catch (err) {
-        setMessage("Error reordenant: " + (err instanceof Error ? err.message : String(err)));
+        setMessage("Error al reordenar: " + (err instanceof Error ? err.message : String(err)));
       }
     });
   };
@@ -117,7 +117,7 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
         setItems((prev) => [...prev, created]);
         setNewDraft(EMPTY_DRAFT);
       } catch (err) {
-        setMessage("Error afegint el producte: " + (err instanceof Error ? err.message : String(err)));
+        setMessage("Error al añadir el producto: " + (err instanceof Error ? err.message : String(err)));
       }
     });
   };
@@ -144,10 +144,10 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
       startTransition(async () => {
         try {
           await importFromXlsxAction(reader.result as ArrayBuffer);
-          setMessage(`✓ Catàleg reimportat des de ${file.name}. Recarregant…`);
+          setMessage(`✓ Catálogo reimportado desde ${file.name}. Recargando…`);
           setTimeout(() => window.location.reload(), 800);
         } catch (err) {
-          setMessage("Error llegint l'Excel: " + (err instanceof Error ? err.message : String(err)));
+          setMessage("Error al leer el Excel: " + (err instanceof Error ? err.message : String(err)));
         }
       });
     };
@@ -158,15 +158,15 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-lg font-bold text-[var(--navy)]">Catàleg</h1>
-          <p className="text-xs text-[var(--muted)]">{items.length} productes</p>
+          <h1 className="text-lg font-bold text-[var(--navy)]">Catálogo</h1>
+          <p className="text-xs text-[var(--muted)]">{items.length} productos</p>
         </div>
         <div className="flex gap-2">
           <Button variant="secondary" onClick={handleExport}>
-            Descarregar Excel
+            Descargar Excel
           </Button>
           <Button variant="secondary" disabled={pending} onClick={() => fileRef.current?.click()}>
-            Pujar Excel
+            Subir Excel
           </Button>
           <input
             ref={fileRef}
@@ -190,13 +190,13 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
 
       <div>
         <label htmlFor="catalog-search" className="sr-only">
-          Cerca al catàleg
+          Buscar en el catálogo
         </label>
         <input
           id="catalog-search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Cerca per codi o descripció…"
+          placeholder="Buscar por código o descripción…"
           className="w-full max-w-sm rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm outline-none transition-shadow duration-150 ease-out focus:ring-2 focus:ring-[var(--focus)]"
         />
       </div>
@@ -206,10 +206,10 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
           <thead>
             <tr className="text-left text-xs uppercase tracking-wide text-[var(--muted)] border-b border-[var(--line)]">
               <th className="px-3 py-2 w-16"></th>
-              <th className="px-3 py-2 w-28">Categoria</th>
-              <th className="px-3 py-2 w-20">Codi</th>
-              <th className="px-3 py-2">Descripció</th>
-              <th className="px-3 py-2 w-32">Preu</th>
+              <th className="px-3 py-2 w-28">Categoría</th>
+              <th className="px-3 py-2 w-20">Código</th>
+              <th className="px-3 py-2">Descripción</th>
+              <th className="px-3 py-2 w-32">Precio</th>
               <th className="px-3 py-2 w-24"></th>
             </tr>
           </thead>
@@ -218,37 +218,37 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
               <td className="px-3 py-1.5"></td>
               <td className="px-3 py-1.5">
                 <input
-                  aria-label="Categoria del nou producte"
+                  aria-label="Categoría del nuevo producto"
                   value={newDraft.cat}
                   onChange={(e) => setNewDraft({ ...newDraft, cat: e.target.value })}
-                  placeholder="Categoria"
+                  placeholder="Categoría"
                   className="w-full rounded-md border border-[var(--line)] px-1.5 py-1 text-xs outline-none transition-shadow focus:ring-2 focus:ring-[var(--focus)]"
                 />
               </td>
               <td className="px-3 py-1.5">
                 <input
-                  aria-label="Codi del nou producte"
+                  aria-label="Código del nuevo producto"
                   value={newDraft.code}
                   onChange={(e) => setNewDraft({ ...newDraft, code: e.target.value })}
-                  placeholder="Codi"
+                  placeholder="Código"
                   className="w-full rounded-md border border-[var(--line)] px-1.5 py-1 text-sm outline-none transition-shadow focus:ring-2 focus:ring-[var(--focus)]"
                 />
               </td>
               <td className="px-3 py-1.5">
                 <input
-                  aria-label="Descripció del nou producte"
+                  aria-label="Descripción del nuevo producto"
                   value={newDraft.description}
                   onChange={(e) => setNewDraft({ ...newDraft, description: e.target.value })}
-                  placeholder="Descripció"
+                  placeholder="Descripción"
                   className="w-full rounded-md border border-[var(--line)] px-1.5 py-1 text-sm outline-none transition-shadow focus:ring-2 focus:ring-[var(--focus)]"
                 />
               </td>
               <td className="px-3 py-1.5">
                 <input
-                  aria-label="Preu del nou producte"
+                  aria-label="Precio del nuevo producto"
                   value={newDraft.price}
                   onChange={(e) => setNewDraft({ ...newDraft, price: e.target.value })}
-                  placeholder="Preu"
+                  placeholder="Precio"
                   className="w-full rounded-md border border-[var(--line)] px-1.5 py-1 text-sm outline-none transition-shadow focus:ring-2 focus:ring-[var(--focus)]"
                 />
               </td>
@@ -258,7 +258,7 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
                   onClick={handleCreate}
                   className="rounded px-1.5 py-1 text-xs font-semibold text-[var(--navy)] transition-colors duration-150 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
                 >
-                  + Afegir
+                  + Añadir
                 </button>
               </td>
             </tr>
@@ -276,7 +276,7 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
                         type="button"
                         disabled={i === 0}
                         onClick={() => handleMove(item.id, "up")}
-                        aria-label={`Moure ${item.code || item.description} amunt`}
+                        aria-label={`Mover ${item.code || item.description} arriba`}
                         className="inline-flex h-6 w-6 items-center justify-center rounded text-xs leading-none text-[var(--muted)] transition-colors duration-150 hover:bg-slate-100 hover:text-[var(--navy)] disabled:opacity-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
                       >
                         ▲
@@ -285,7 +285,7 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
                         type="button"
                         disabled={i === filtered.length - 1}
                         onClick={() => handleMove(item.id, "down")}
-                        aria-label={`Moure ${item.code || item.description} avall`}
+                        aria-label={`Mover ${item.code || item.description} abajo`}
                         className="inline-flex h-6 w-6 items-center justify-center rounded text-xs leading-none text-[var(--muted)] transition-colors duration-150 hover:bg-slate-100 hover:text-[var(--navy)] disabled:opacity-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
                       >
                         ▼
@@ -296,7 +296,7 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
                     <>
                       <td className="px-3 py-1.5">
                         <input
-                          aria-label="Categoria"
+                          aria-label="Categoría"
                           value={editDraft.cat}
                           onChange={(e) => setEditDraft({ ...editDraft, cat: e.target.value })}
                           className="w-full rounded-md border border-[var(--line)] px-1.5 py-1 text-xs outline-none transition-shadow focus:ring-2 focus:ring-[var(--focus)]"
@@ -304,7 +304,7 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
                       </td>
                       <td className="px-3 py-1.5">
                         <input
-                          aria-label="Codi"
+                          aria-label="Código"
                           value={editDraft.code}
                           onChange={(e) => setEditDraft({ ...editDraft, code: e.target.value })}
                           className="w-full rounded-md border border-[var(--line)] px-1.5 py-1 text-sm outline-none transition-shadow focus:ring-2 focus:ring-[var(--focus)]"
@@ -312,7 +312,7 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
                       </td>
                       <td className="px-3 py-1.5">
                         <input
-                          aria-label="Descripció"
+                          aria-label="Descripción"
                           value={editDraft.description}
                           onChange={(e) => setEditDraft({ ...editDraft, description: e.target.value })}
                           className="w-full rounded-md border border-[var(--line)] px-1.5 py-1 text-sm outline-none transition-shadow focus:ring-2 focus:ring-[var(--focus)]"
@@ -320,10 +320,10 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
                       </td>
                       <td className="px-3 py-1.5">
                         <input
-                          aria-label="Preu"
+                          aria-label="Precio"
                           value={editDraft.price}
                           onChange={(e) => setEditDraft({ ...editDraft, price: e.target.value })}
-                          placeholder={editDraft.priceText || "preu"}
+                          placeholder={editDraft.priceText || "precio"}
                           className="w-full rounded-md border border-[var(--line)] px-1.5 py-1 text-sm outline-none transition-shadow focus:ring-2 focus:ring-[var(--focus)]"
                         />
                       </td>
@@ -333,14 +333,14 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
                           onClick={() => saveEdit(item.id)}
                           className="mr-2 rounded px-1.5 py-1 text-xs font-semibold text-[var(--navy)] transition-colors duration-150 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
                         >
-                          Desar
+                          Guardar
                         </button>
                         <button
                           type="button"
                           onClick={cancelEdit}
                           className="rounded px-1.5 py-1 text-xs text-[var(--muted)] transition-colors duration-150 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
                         >
-                          Cancel·la
+                          Cancelar
                         </button>
                       </td>
                     </>
@@ -373,13 +373,13 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
             })}
           </tbody>
         </table>
-        {filtered.length === 0 && <p className="text-sm text-[var(--muted)] px-5 py-6">Cap producte trobat.</p>}
+        {filtered.length === 0 && <p className="text-sm text-[var(--muted)] px-5 py-6">No se ha encontrado ningún producto.</p>}
       </div>
 
       <ConfirmDialog
         open={deletingId !== null}
-        title="Eliminar aquest producte?"
-        description="S'eliminarà del catàleg. Aquesta acció no es pot desfer."
+        title="¿Eliminar este producto?"
+        description="Se eliminará del catálogo. Esta acción no se puede deshacer."
         confirmLabel="Eliminar"
         danger
         onConfirm={confirmDelete}

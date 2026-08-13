@@ -44,7 +44,7 @@ export default function EditAlbaranClient({
       await updateAlbaranAction(noteId, clientId, header, lines);
       router.push(`/clientes/${clientId}`);
     } catch (err) {
-      setMessage({ type: "error", text: "Error desant els canvis: " + (err instanceof Error ? err.message : String(err)) });
+      setMessage({ type: "error", text: "Error al guardar los cambios: " + (err instanceof Error ? err.message : String(err)) });
     } finally {
       setSaving(false);
     }
@@ -62,13 +62,13 @@ export default function EditAlbaranClient({
       } catch (saveErr) {
         setMessage({
           type: "error",
-          text: "No s'han pogut desar els canvis: " + (saveErr instanceof Error ? saveErr.message : String(saveErr)),
+          text: "No se han podido guardar los cambios: " + (saveErr instanceof Error ? saveErr.message : String(saveErr)),
         });
         return;
       }
       downloadPdf(bytes, header.pakbonnummer);
     } catch (err) {
-      setMessage({ type: "error", text: "Error generant el PDF: " + (err instanceof Error ? err.message : String(err)) });
+      setMessage({ type: "error", text: "Error al generar el PDF: " + (err instanceof Error ? err.message : String(err)) });
     } finally {
       setGenerating(false);
     }
@@ -82,19 +82,19 @@ export default function EditAlbaranClient({
             href={`/clientes/${clientId}`}
             className="rounded text-xs text-[var(--muted)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
           >
-            ← Tornar a {clientName || "la fitxa del client"}
+            ← Volver a {clientName || "la ficha del cliente"}
           </Link>
-          <h1 className="text-lg font-bold text-[var(--navy)] mt-1">Editar albarà</h1>
+          <h1 className="text-lg font-bold text-[var(--navy)] mt-1">Editar albarán</h1>
         </div>
         <div className="flex gap-2">
           <Button variant="secondary" onClick={() => setLines((ls) => [...ls, newLine()])}>
-            + Línia
+            + Línea
           </Button>
           <Button variant="secondary" disabled={saving} onClick={handleSave}>
-            {saving ? "Desant…" : "Guardar canvis"}
+            {saving ? "Guardando…" : "Guardar cambios"}
           </Button>
           <Button disabled={generating} onClick={handleGeneratePdf}>
-            {generating ? "Generant…" : "Descarregar PDF"}
+            {generating ? "Generando…" : "Descargar PDF"}
           </Button>
         </div>
       </div>
@@ -112,7 +112,7 @@ export default function EditAlbaranClient({
 
       {reviewItems.length > 0 && (
         <div className="text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-3">
-          <b>Revisar:</b> {reviewItems.map((p) => `${p.code} (${p.priceText})`).join(", ")} — sense preu numèric; posa'l a mà a la línia.
+          <b>Revisar:</b> {reviewItems.map((p) => `${p.code} (${p.priceText})`).join(", ")} — sin precio numérico; ponlo a mano en la línea.
         </div>
       )}
 

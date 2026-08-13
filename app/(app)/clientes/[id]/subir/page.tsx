@@ -9,7 +9,7 @@ export default async function SubirAlbaranPage({ params }: { params: Promise<{ i
 
   return (
     <div className="space-y-4">
-      <h1 className="text-lg font-bold text-[var(--navy)]">Pujar albarà extern · {client.naam_patient || "(sense nom)"}</h1>
+      <h1 className="text-lg font-bold text-[var(--navy)]">Subir albarán externo · {client.naam_patient || "(sin nombre)"}</h1>
       <SubirAlbaranClient clientId={id} />
     </div>
   );

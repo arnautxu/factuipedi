@@ -19,7 +19,7 @@ export async function getCatalog(): Promise<CatalogEntry[]> {
       }));
     }
   } catch (err) {
-    console.log("No s'ha pogut llegir el catàleg de Supabase, uso el catàleg incrustat:", err);
+    console.log("No se ha podido leer el catálogo de Supabase, uso el catálogo incrustado:", err);
   }
 
   return EMBEDDED_CATALOG.map((it) => ({

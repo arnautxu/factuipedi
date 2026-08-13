@@ -33,7 +33,7 @@ export default function DeliveryNotesTable({ clientId, notes }: { clientId: stri
     try {
       const { header, lines } = await getCombinedLinesAction(clientId, [...selected]);
       if (!lines.length) {
-        setError("Els albarans seleccionats no tenen línies.");
+        setError("Los albaranes seleccionados no tienen líneas.");
         return;
       }
       const bytes = await generateAlbaranPdf(header, lines);
@@ -43,14 +43,14 @@ export default function DeliveryNotesTable({ clientId, notes }: { clientId: stri
       downloadPdf(bytes, "combinada");
       router.refresh();
     } catch (err) {
-      setError("Error generant la factura combinada: " + (err instanceof Error ? err.message : String(err)));
+      setError("Error al generar la factura combinada: " + (err instanceof Error ? err.message : String(err)));
     } finally {
       setGenerating(false);
     }
   };
 
   if (notes.length === 0) {
-    return <p className="text-sm text-[var(--muted)] px-5 py-6">Encara no hi ha albarans per a aquest client.</p>;
+    return <p className="text-sm text-[var(--muted)] px-5 py-6">Todavía no hay albaranes para este cliente.</p>;
   }
 
   return (
@@ -61,7 +61,7 @@ export default function DeliveryNotesTable({ clientId, notes }: { clientId: stri
             <tr className="text-left text-xs uppercase tracking-wide text-[var(--muted)] border-b border-[var(--line)]">
               <th className="px-5 py-2.5 w-8"></th>
               <th className="px-5 py-2.5">Pakbonnummer</th>
-              <th className="px-5 py-2.5">Data</th>
+              <th className="px-5 py-2.5">Fecha</th>
               <th className="px-5 py-2.5">Origen</th>
               <th className="px-5 py-2.5 text-right">Total</th>
             </tr>
@@ -78,7 +78,7 @@ export default function DeliveryNotesTable({ clientId, notes }: { clientId: stri
                       type="checkbox"
                       checked={selected.has(n.id)}
                       onChange={() => toggle(n.id)}
-                      aria-label={`Seleccionar albarà ${n.pakbonnummer || n.id} per combinar`}
+                      aria-label={`Seleccionar albarán ${n.pakbonnummer || n.id} para combinar`}
                       className="h-4 w-4 accent-[var(--navy)]"
                     />
                   )}
@@ -88,7 +88,7 @@ export default function DeliveryNotesTable({ clientId, notes }: { clientId: stri
                     href={`/clientes/${clientId}/albaran/${n.id}`}
                     className="rounded text-[var(--navy)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
                   >
-                    {n.pakbonnummer || "(sense número)"}
+                    {n.pakbonnummer || "(sin número)"}
                   </Link>
                 </td>
                 <td className="px-5 py-2.5 text-[var(--muted)]">{n.uitgiftedatum || "—"}</td>
@@ -103,10 +103,10 @@ export default function DeliveryNotesTable({ clientId, notes }: { clientId: stri
       {combinable.length > 0 && (
         <div className="px-5 py-3 border-t border-[var(--line)] flex items-center justify-between flex-wrap gap-2">
           <span className="text-xs text-[var(--muted)]">
-            {selected.size} albarà{selected.size === 1 ? "" : "ns"} seleccionat{selected.size === 1 ? "" : "s"} per combinar
+            {selected.size} {selected.size === 1 ? "albarán seleccionado" : "albaranes seleccionados"} para combinar
           </span>
           <Button disabled={generating || selected.size === 0} onClick={handleGenerate}>
-            {generating ? "Generant…" : "Generar factura combinada"}
+            {generating ? "Generando…" : "Generar factura combinada"}
           </Button>
         </div>
       )}

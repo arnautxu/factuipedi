@@ -84,10 +84,10 @@ export default function AlbaranNuevoClient({ catalog, clients }: { catalog: Cata
     setMessage(null);
     try {
       await saveAlbaranAction(clientId, header, lines);
-      setMessage({ type: "success", text: "Albarà desat correctament." });
+      setMessage({ type: "success", text: "Albarán guardado correctamente." });
       clearDraft();
     } catch (err) {
-      setMessage({ type: "error", text: "Error desant l'albarà: " + (err instanceof Error ? err.message : String(err)) });
+      setMessage({ type: "error", text: "Error al guardar el albarán: " + (err instanceof Error ? err.message : String(err)) });
     } finally {
       setSaving(false);
     }
@@ -109,13 +109,13 @@ export default function AlbaranNuevoClient({ catalog, clients }: { catalog: Cata
       } catch (saveErr) {
         setMessage({
           type: "error",
-          text: "No s'ha pogut desar l'albarà: " + (saveErr instanceof Error ? saveErr.message : String(saveErr)),
+          text: "No se ha podido guardar el albarán: " + (saveErr instanceof Error ? saveErr.message : String(saveErr)),
         });
         return;
       }
       downloadPdf(bytes, header.pakbonnummer);
     } catch (err) {
-      setMessage({ type: "error", text: "Error generant el PDF: " + (err instanceof Error ? err.message : String(err)) });
+      setMessage({ type: "error", text: "Error al generar el PDF: " + (err instanceof Error ? err.message : String(err)) });
     } finally {
       setGenerating(false);
     }
@@ -125,21 +125,21 @@ export default function AlbaranNuevoClient({ catalog, clients }: { catalog: Cata
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-lg font-bold text-[var(--navy)]">Nou albarà</h1>
-          <p className="text-xs text-[var(--muted)]">{catalog.length} productes al catàleg</p>
+          <h1 className="text-lg font-bold text-[var(--navy)]">Nuevo albarán</h1>
+          <p className="text-xs text-[var(--muted)]">{catalog.length} productos en el catálogo</p>
         </div>
         <div className="flex gap-2">
           <Button variant="secondary" onClick={() => setConfirmingNew(true)}>
-            Nou
+            Nuevo
           </Button>
           <Button variant="secondary" onClick={() => setLines((ls) => [...ls, newLine()])}>
-            + Línia
+            + Línea
           </Button>
           <Button variant="secondary" disabled={saving} onClick={handleSave}>
-            {saving ? "Desant…" : "Guardar"}
+            {saving ? "Guardando…" : "Guardar"}
           </Button>
           <Button disabled={generating} onClick={handleGeneratePdf}>
-            {generating ? "Generant…" : "Descarregar PDF"}
+            {generating ? "Generando…" : "Descargar PDF"}
           </Button>
         </div>
       </div>
@@ -157,7 +157,7 @@ export default function AlbaranNuevoClient({ catalog, clients }: { catalog: Cata
 
       {reviewItems.length > 0 && (
         <div className="text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-3">
-          <b>Revisar:</b> {reviewItems.map((p) => `${p.code} (${p.priceText})`).join(", ")} — sense preu numèric; posa'l a mà a la línia.
+          <b>Revisar:</b> {reviewItems.map((p) => `${p.code} (${p.priceText})`).join(", ")} — sin precio numérico; ponlo a mano en la línea.
         </div>
       )}
 
@@ -195,9 +195,9 @@ export default function AlbaranNuevoClient({ catalog, clients }: { catalog: Cata
 
       <ConfirmDialog
         open={confirmingNew}
-        title="Buidar el formulari?"
-        description="Es perdran totes les dades introduïdes en aquest albarà."
-        confirmLabel="Buidar"
+        title="¿Vaciar el formulario?"
+        description="Se perderán todos los datos introducidos en este albarán."
+        confirmLabel="Vaciar"
         danger
         onConfirm={handleNew}
         onCancel={() => setConfirmingNew(false)}
