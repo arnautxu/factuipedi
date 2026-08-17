@@ -6,13 +6,10 @@ import { importClientsAction } from "@/app/(app)/clientes/actions";
 import type { Client } from "@/types/database";
 import { Button } from "@/components/ui/Button";
 
-type FieldKey = "naam_patient" | "geboortedatum" | "behandelaar" | "klant_regel2" | "in_opdracht" | "notes";
+type FieldKey = "naam_patient" | "in_opdracht" | "notes";
 
 const FIELDS: { key: FieldKey; label: string; aliases: string[] }[] = [
-  { key: "naam_patient", label: "Naam patiënt", aliases: ["naam patient", "naam", "patient", "paciente", "nombre", "name", "nom"] },
-  { key: "geboortedatum", label: "Geboorte datum", aliases: ["geboorte", "birth", "nacimiento", "naixement"] },
-  { key: "behandelaar", label: "Behandelaar", aliases: ["behandelaar", "doctor", "dentista", "metge"] },
-  { key: "klant_regel2", label: "Kliniek / adres", aliases: ["kliniek", "clinica", "adres", "address", "direccion"] },
+  { key: "naam_patient", label: "Paciente", aliases: ["patient", "paciente", "naam patient", "behandelaar", "nombre"] },
   { key: "in_opdracht", label: "In opdracht gemaakt van", aliases: ["opdracht", "orden", "commande"] },
   { key: "notes", label: "Notes", aliases: ["notes", "notas", "observ"] },
 ];
@@ -55,9 +52,6 @@ export function ImportClientsModal({
   const [rawRows, setRawRows] = useState<string[][]>([]);
   const [mapping, setMapping] = useState<Record<FieldKey, number | null>>({
     naam_patient: null,
-    geboortedatum: null,
-    behandelaar: null,
-    klant_regel2: null,
     in_opdracht: null,
     notes: null,
   });
@@ -158,13 +152,13 @@ export function ImportClientsModal({
     >
       <div className="max-h-[85vh] overflow-y-auto p-6">
         <h2 id="import-clients-title" className="text-base font-bold text-[var(--ink)]">
-          Importar clientes desde CSV
+          Importar pacientes desde CSV
         </h2>
 
         {step === "pick" && (
           <div className="mt-4 space-y-4">
             <p className="text-sm text-[var(--muted)]">
-              Sube un archivo CSV con tu base de datos de clientes. En el siguiente paso podrás elegir qué columna
+              Sube un archivo CSV con tu base de datos de pacientes. En el siguiente paso podrás elegir qué columna
               corresponde a cada campo.
             </p>
             <input
@@ -284,7 +278,7 @@ export function ImportClientsModal({
         {step === "done" && (
           <div className="mt-4 space-y-4">
             <p role="status" className="text-sm text-[var(--ink)]">
-              Se han importado <b>{resultCount}</b> clientes nuevos correctamente.
+              Se han importado <b>{resultCount}</b> pacientes nuevos correctamente.
             </p>
             <div className="flex justify-end">
               <Button onClick={onClose}>Cerrar</Button>

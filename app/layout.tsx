@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "NoaDentLab · Nota / Albarán",
-  description: "Gestión de albaranes y clientes de NoaDentLab",
+  description: "Gestión de albaranes, pacientes y clínicas de NoaDentLab",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

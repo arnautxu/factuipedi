@@ -39,7 +39,7 @@ export default function SubirAlbaranClient({ clientId }: { clientId: string }) {
         href={`/clientes/${clientId}`}
         className="rounded text-xs text-[var(--muted)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
       >
-        ← Volver a la ficha del cliente
+        ← Volver a la ficha del paciente
       </Link>
 
       <Card className="p-8 text-center">

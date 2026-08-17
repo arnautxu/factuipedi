@@ -6,7 +6,8 @@ import { logoutAction } from "@/app/(auth)/login/actions";
 
 const LINKS = [
   { href: "/albaran/nuevo", label: "Nuevo albarán" },
-  { href: "/clientes", label: "Clientes" },
+  { href: "/clientes", label: "Pacientes" },
+  { href: "/clinicas", label: "Clínicas" },
   { href: "/catalogo", label: "Catálogo" },
 ];
 

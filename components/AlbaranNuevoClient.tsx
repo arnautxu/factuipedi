@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { CatalogEntry } from "@/types/catalog";
-import type { Client } from "@/types/database";
+import type { Client, Clinic } from "@/types/database";
 import { emptyHeader, newLine, type AlbaranHeader, type LineItem } from "@/types/albaran";
 import { generateAlbaranPdf, downloadPdf } from "@/lib/pdf/generateAlbaran";
 import { saveAlbaranAction } from "@/app/(app)/albaran/actions";
@@ -18,10 +18,11 @@ const DRAFT_KEY = "albaran-nuevo-draft";
 
 type Draft = { header: AlbaranHeader; lines: LineItem[]; clientId: string | null };
 
-export default function AlbaranNuevoClient({ catalog, clients }: { catalog: CatalogEntry[]; clients: Client[] }) {
+export default function AlbaranNuevoClient({ catalog, clients, clinics }: { catalog: CatalogEntry[]; clients: Client[]; clinics: Clinic[] }) {
   const [header, setHeader] = useState(emptyHeader());
   const [lines, setLines] = useState<LineItem[]>([newLine(), newLine(), newLine()]);
   const [clientId, setClientId] = useState<string | null>(null);
+  const [clinicId, setClinicId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
@@ -74,6 +75,7 @@ export default function AlbaranNuevoClient({ catalog, clients }: { catalog: Cata
     setHeader(emptyHeader());
     setLines([newLine(), newLine(), newLine()]);
     setClientId(null);
+    setClinicId(null);
     setMessage(null);
     setConfirmingNew(false);
     clearDraft();
@@ -164,12 +166,42 @@ export default function AlbaranNuevoClient({ catalog, clients }: { catalog: Cata
       <Card className="p-6 space-y-4">
         <ClientPicker
           clients={clients}
+          clinics={clinics}
+          clinicId={clinicId}
           selectedId={clientId}
           onSelect={(client, patch) => {
             setClientId(client?.id ?? null);
+            setClinicId(client?.clinic_id ?? clinicId);
             setHeader((h) => ({ ...h, ...patch }));
           }}
         />
+
+        <div>
+          <label htmlFor="albaran-clinic" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
+            Clínica
+          </label>
+          <select
+            id="albaran-clinic"
+            value={clinicId ?? ""}
+            onChange={(event) => {
+              const nextId = event.target.value || null;
+              const clinic = clinics.find((item) => item.id === nextId);
+              setClinicId(nextId);
+              setClientId(null);
+              setHeader((current) => ({
+                ...current,
+                behandelaar: clinic?.behandelaar ?? "",
+                klant_regel2: clinic?.address ?? "",
+                in_opdracht: clinic?.name ?? current.in_opdracht,
+              }));
+            }}
+            className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm outline-none transition-shadow duration-150 ease-out focus:ring-2 focus:ring-[var(--focus)]"
+          >
+            <option value="">Selecciona una clínica</option>
+            {clinics.map((clinic) => <option key={clinic.id} value={clinic.id}>{clinic.name}</option>)}
+          </select>
+          <p className="mt-1 text-xs text-[var(--muted)]">Al seleccionarla se completa el responsable y la dirección del albarán.</p>
+        </div>
 
         <div className="pt-2 border-t border-[var(--line)]">
           <AlbaranForm header={header} onChange={setHeader} />

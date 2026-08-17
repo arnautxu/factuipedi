@@ -1,7 +1,7 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { createAdminClient } from "./admin";
-import type { Client, DeliveryNote, DeliveryNoteLine, CatalogItem, UploadedDocument } from "@/types/database";
+import type { Client, Clinic, DeliveryNote, DeliveryNoteLine, CatalogItem, UploadedDocument } from "@/types/database";
 import type { AlbaranHeader, LineItem } from "@/types/albaran";
 import type { EmbeddedCatalogItem } from "@/lib/catalog/embeddedCatalog";
 import { lineTotal, applyDiscountToAmount } from "@/lib/albaran/pricing";
@@ -94,13 +94,52 @@ export async function swapCatalogItemPositions(idA: string, posA: number, idB: s
 
 export async function getClients(search?: string): Promise<Client[]> {
   const supabase = createAdminClient();
-  let query = supabase.from("clients").select("*").order("naam_patient", { ascending: true });
+  let query = supabase.from("clients").select("*").order("naam_patient", { ascending: true, nullsFirst: false });
   if (search) {
     query = query.or(`naam_patient.ilike.%${search}%,behandelaar.ilike.%${search}%,klant_regel2.ilike.%${search}%`);
   }
   const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as Client[];
+}
+
+export async function getClinics(): Promise<Clinic[]> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.from("clinics").select("*").order("name", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as Clinic[];
+}
+
+export async function getClinic(id: string): Promise<Clinic | null> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.from("clinics").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  return data as Clinic | null;
+}
+
+export async function createClinic(input: Partial<Clinic>): Promise<Clinic> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.from("clinics").insert(input).select().single();
+  if (error) throw error;
+  return data as Clinic;
+}
+
+export async function updateClinic(id: string, input: Partial<Clinic>): Promise<Clinic> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.from("clinics").update({ ...input, updated_at: new Date().toISOString() }).eq("id", id).select().single();
+  if (error) throw error;
+  return data as Clinic;
+}
+
+export async function getDeliveryNotesForClinic(clinicId: string): Promise<DeliveryNote[]> {
+  const supabase = createAdminClient();
+  const { data: clientRows, error: clientsError } = await supabase.from("clients").select("id").eq("clinic_id", clinicId);
+  if (clientsError) throw clientsError;
+  const clientIds = (clientRows ?? []).map((client) => client.id);
+  if (!clientIds.length) return [];
+  const { data, error } = await supabase.from("delivery_notes").select("*").in("client_id", clientIds).neq("source", "combined").order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as DeliveryNote[];
 }
 
 export async function getClient(id: string): Promise<Client | null> {

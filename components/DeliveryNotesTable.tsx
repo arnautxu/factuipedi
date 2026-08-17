@@ -3,119 +3,179 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import type { DeliveryNote } from "@/types/database";
+import type { DeliveryNote, DeliveryNoteSource } from "@/types/database";
 import { generateAlbaranPdf, downloadPdf } from "@/lib/pdf/generateAlbaran";
 import { getCombinedLinesAction, saveCombinedInvoiceAction } from "@/app/(app)/clientes/actions";
 import { Button } from "@/components/ui/Button";
 
-const eur = (v: number | null) => (v == null ? "—" : v.toLocaleString("nl-NL", { style: "currency", currency: "EUR" }));
+const eur = (value: number | null) =>
+  value == null ? "—" : value.toLocaleString("es-ES", { style: "currency", currency: "EUR" });
+
+const sourceLabel: Record<DeliveryNoteSource, string> = {
+  created: "Creado aquí",
+  uploaded: "Importado",
+  combined: "Factura combinada",
+};
+
+type NoteGroup = {
+  key: string;
+  label: string;
+  locations: { key: string; label: string; notes: DeliveryNote[] }[];
+};
+
+function parseNoteDate(note: DeliveryNote) {
+  const value = note.uitgiftedatum || note.inkomstdatum;
+  if (!value) return null;
+  const isoMatch = value.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  const europeanMatch = value.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  const parts = isoMatch ? [isoMatch[3], isoMatch[2], isoMatch[1]] : europeanMatch?.slice(1);
+  if (!parts) return null;
+  const [day, month, year] = parts.map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function groupNotes(notes: DeliveryNote[]): NoteGroup[] {
+  const months = new Map<string, { label: string; time: number; locations: Map<string, { label: string; notes: DeliveryNote[] }> }>();
+  notes.forEach((note) => {
+    const date = parseNoteDate(note);
+    const monthKey = date ? `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}` : "undated";
+    const monthLabel = date
+      ? new Intl.DateTimeFormat("es-ES", { month: "long", year: "numeric", timeZone: "UTC" }).format(date)
+      : "Sin fecha";
+    const locationLabel = note.klant_regel2?.trim() || "Sin ubicación indicada";
+    const locationKey = locationLabel.toLocaleLowerCase("es-ES");
+    if (!months.has(monthKey)) months.set(monthKey, { label: monthLabel, time: date?.getTime() ?? -1, locations: new Map() });
+    const month = months.get(monthKey)!;
+    if (!month.locations.has(locationKey)) month.locations.set(locationKey, { label: locationLabel, notes: [] });
+    month.locations.get(locationKey)!.notes.push(note);
+  });
+
+  return [...months.entries()]
+    .sort(([, a], [, b]) => b.time - a.time)
+    .map(([key, month]) => ({
+      key,
+      label: month.label.charAt(0).toUpperCase() + month.label.slice(1),
+      locations: [...month.locations.entries()]
+        .sort(([, a], [, b]) => a.label.localeCompare(b.label, "es"))
+        .map(([locationKey, location]) => ({ key: locationKey, ...location })),
+    }));
+}
 
 export default function DeliveryNotesTable({ clientId, notes }: { clientId: string; notes: DeliveryNote[] }) {
   const router = useRouter();
-  const combinable = notes.filter((n) => n.source !== "combined");
-  const [selected, setSelected] = useState<Set<string>>(new Set(combinable.map((n) => n.id)));
-  const [generating, setGenerating] = useState(false);
+  const combinable = notes.filter((note) => note.source !== "combined");
+  const [selected, setSelected] = useState<Set<string>>(new Set(combinable.map((note) => note.id)));
+  const [generatingKey, setGeneratingKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const groups = groupNotes(notes);
 
   const toggle = (id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
+    setSelected((previous) => {
+      const next = new Set(previous);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
   };
 
-  const handleGenerate = async () => {
-    if (selected.size === 0) return;
-    setGenerating(true);
+  const handleGenerate = async (noteIds: string[], key: string, filename: string) => {
+    if (noteIds.length === 0) return;
+    setGeneratingKey(key);
     setError(null);
     try {
-      const { header, lines } = await getCombinedLinesAction(clientId, [...selected]);
+      const { header, lines } = await getCombinedLinesAction(clientId, noteIds);
       if (!lines.length) {
-        setError("Los albaranes seleccionados no tienen líneas.");
+        setError("Los albaranes incluidos no tienen líneas.");
         return;
       }
       const bytes = await generateAlbaranPdf(header, lines);
-      // Es desa abans de descarregar: a Safari mòbil, la descàrrega d'un PDF
-      // pot interrompre una petició de xarxa concurrent en curs.
+      // Se guarda antes de descargar: en Safari móvil, la descarga de un PDF
+      // puede interrumpir una petición de red concurrente.
       await saveCombinedInvoiceAction(clientId, header, lines);
-      downloadPdf(bytes, "combinada");
+      downloadPdf(bytes, filename);
       router.refresh();
     } catch (err) {
       setError("Error al generar la factura combinada: " + (err instanceof Error ? err.message : String(err)));
     } finally {
-      setGenerating(false);
+      setGeneratingKey(null);
     }
   };
 
-  if (notes.length === 0) {
-    return <p className="text-sm text-[var(--muted)] px-5 py-6">Todavía no hay albaranes para este cliente.</p>;
-  }
+  if (notes.length === 0) return <p className="px-5 py-8 text-sm text-[var(--muted)]">Todavía no hay albaranes para este paciente.</p>;
 
   return (
     <div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-xs uppercase tracking-wide text-[var(--muted)] border-b border-[var(--line)]">
-              <th className="px-5 py-2.5 w-8"></th>
-              <th className="px-5 py-2.5">Pakbonnummer</th>
-              <th className="px-5 py-2.5">Fecha</th>
-              <th className="px-5 py-2.5">Origen</th>
-              <th className="px-5 py-2.5 text-right">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {notes.map((n) => (
-              <tr
-                key={n.id}
-                className="border-b border-[var(--line-soft)] transition-colors duration-150 last:border-0 hover:bg-slate-50/70"
-              >
-                <td className="px-5 py-2.5">
-                  {n.source !== "combined" && (
-                    <input
-                      type="checkbox"
-                      checked={selected.has(n.id)}
-                      onChange={() => toggle(n.id)}
-                      aria-label={`Seleccionar albarán ${n.pakbonnummer || n.id} para combinar`}
-                      className="h-4 w-4 accent-[var(--navy)]"
-                    />
+      <div className="divide-y divide-[var(--line)]">
+        {groups.map((month) => (
+          <section key={month.key} aria-labelledby={`month-${month.key}`} className="px-4 py-5 sm:px-5">
+            {(() => {
+              const monthNoteIds = month.locations
+                .flatMap((location) => location.notes)
+                .filter((note) => note.source !== "combined")
+                .map((note) => note.id);
+
+              return (
+                <div className="flex items-center justify-between gap-3">
+                  <h3 id={`month-${month.key}`} className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--navy)]">{month.label}</h3>
+                  {monthNoteIds.length > 0 && (
+                    <Button
+                      variant="secondary"
+                      disabled={generatingKey !== null}
+                      onClick={() => handleGenerate(monthNoteIds, month.key, `factura-${month.key}`)}
+                      className="px-2.5 py-1.5 text-xs"
+                    >
+                      {generatingKey === month.key ? "Generando…" : "Descargar conjunto"}
+                    </Button>
                   )}
-                </td>
-                <td className="px-5 py-2.5 font-medium">
-                  <Link
-                    href={`/clientes/${clientId}/albaran/${n.id}`}
-                    className="rounded text-[var(--navy)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
-                  >
-                    {n.pakbonnummer || "(sin número)"}
-                  </Link>
-                </td>
-                <td className="px-5 py-2.5 text-[var(--muted)]">{n.uitgiftedatum || "—"}</td>
-                <td className="px-5 py-2.5 text-[var(--muted)] capitalize">{n.source}</td>
-                <td className="px-5 py-2.5 text-right">{eur(n.total)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </div>
+              );
+            })()}
+            <div className="mt-3 space-y-4">
+              {month.locations.map((location) => (
+                <div key={location.key} className="overflow-hidden rounded-xl border border-[var(--line)] bg-white">
+                  <div className="border-b border-[var(--line-soft)] bg-[var(--tint)] px-3 py-2.5 sm:px-4">
+                    <p className="text-xs font-semibold leading-5 text-[var(--ink)]">{location.label}</p>
+                  </div>
+                  <ul className="divide-y divide-[var(--line-soft)]" aria-label={`Albaranes en ${location.label}`}>
+                    {location.notes.map((note) => {
+                      const selectable = note.source !== "combined";
+                      return (
+                        <li key={note.id} className="group flex items-center gap-3 px-3 py-3 transition-colors hover:bg-slate-50 sm:px-4">
+                          <div className="flex h-5 w-5 shrink-0 items-center justify-center">
+                            {selectable && <input type="checkbox" checked={selected.has(note.id)} onChange={() => toggle(note.id)} aria-label={`Seleccionar albarán ${note.pakbonnummer || note.id} para combinar`} className="h-4 w-4 rounded border-[var(--line)] accent-[var(--navy)]" />}
+                          </div>
+                          <Link href={`/clientes/${clientId}/albaran/${note.id}`} className="min-w-0 flex-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]">
+                            <div className="flex min-w-0 items-center justify-between gap-3">
+                              <span className="truncate text-sm font-semibold text-[var(--navy)] group-hover:underline">{note.pakbonnummer || "Albarán sin número"}</span>
+                              <span className="shrink-0 text-sm font-semibold tabular-nums text-[var(--ink)]">{eur(note.total)}</span>
+                            </div>
+                            <div className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-[var(--muted)]"><span>{note.uitgiftedatum || note.inkomstdatum || "Sin fecha"}</span><span aria-hidden="true">·</span><span>{sourceLabel[note.source]}</span></div>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
       </div>
 
       {combinable.length > 0 && (
-        <div className="px-5 py-3 border-t border-[var(--line)] flex items-center justify-between flex-wrap gap-2">
-          <span className="text-xs text-[var(--muted)]">
-            {selected.size} {selected.size === 1 ? "albarán seleccionado" : "albaranes seleccionados"} para combinar
-          </span>
-          <Button disabled={generating || selected.size === 0} onClick={handleGenerate}>
-            {generating ? "Generando…" : "Generar factura combinada"}
+        <div className="sticky bottom-3 mx-3 mt-3 flex items-center justify-between gap-3 rounded-xl border border-[var(--line)] bg-white/95 px-3 py-3 shadow-sm backdrop-blur sm:mx-5 sm:px-4">
+          <span aria-live="polite" className="text-xs leading-5 text-[var(--muted)]">{selected.size} {selected.size === 1 ? "albarán seleccionado" : "albaranes seleccionados"}</span>
+          <Button
+            disabled={generatingKey !== null || selected.size === 0}
+            onClick={() => handleGenerate([...selected], "selection", "combinada")}
+            className="shrink-0"
+          >
+            {generatingKey === "selection" ? "Generando…" : "Generar factura"}
           </Button>
         </div>
       )}
-
-      {error && (
-        <p role="alert" className="text-sm text-red-600 px-5 py-3">
-          {error}
-        </p>
-      )}
+      {error && <p role="alert" className="px-5 py-3 text-sm text-red-700">{error}</p>}
     </div>
   );
 }

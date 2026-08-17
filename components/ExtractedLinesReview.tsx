@@ -198,7 +198,7 @@ export default function ExtractedLinesReview({
       )}
 
       <Button disabled={saving} onClick={handleSave}>
-        {saving ? "Guardando…" : "Guardar en la ficha del cliente"}
+        {saving ? "Guardando…" : "Guardar en la ficha del paciente"}
       </Button>
     </div>
   );

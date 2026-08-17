@@ -4,7 +4,7 @@ import ClientForm from "@/components/ClientForm";
 import DeliveryNotesTable from "@/components/DeliveryNotesTable";
 import DeleteClientButton from "@/components/DeleteClientButton";
 import { Card } from "@/components/ui/Card";
-import { getClient, getDeliveryNotesForClient } from "@/lib/supabase/queries";
+import { getClient, getClinics, getDeliveryNotesForClient } from "@/lib/supabase/queries";
 import { updateClientAction, deleteClientAction } from "../actions";
 
 export default async function ClienteDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -13,6 +13,7 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
   if (!client) notFound();
 
   const notes = await getDeliveryNotesForClient(id);
+  const clinics = await getClinics();
   const boundUpdate = updateClientAction.bind(null, id);
   const boundDelete = deleteClientAction.bind(null, id);
 
@@ -20,18 +21,18 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-lg font-bold text-[var(--navy)]">{client.naam_patient || "(sin nombre)"}</h1>
+          <h1 className="text-lg font-bold text-[var(--navy)]">{client.naam_patient || client.behandelaar || "Ficha de paciente"}</h1>
           <Link
             href="/clientes"
             className="rounded text-xs text-[var(--muted)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
           >
-            ← Volver a clientes
+            ← Volver a pacientes
           </Link>
         </div>
-        <DeleteClientButton clientName={client.naam_patient ?? ""} action={boundDelete} />
+        <DeleteClientButton clientName={client.naam_patient ?? client.behandelaar ?? ""} action={boundDelete} />
       </div>
 
-      <ClientForm client={client} action={boundUpdate} submitLabel="Guardar cambios" />
+      <ClientForm client={client} clinics={clinics} action={boundUpdate} submitLabel="Guardar cambios" />
 
       <Card className="overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--line)]">

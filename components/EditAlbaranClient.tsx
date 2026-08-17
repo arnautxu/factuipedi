@@ -82,7 +82,7 @@ export default function EditAlbaranClient({
             href={`/clientes/${clientId}`}
             className="rounded text-xs text-[var(--muted)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
           >
-            ← Volver a {clientName || "la ficha del cliente"}
+            ← Volver a {clientName || "la ficha del paciente"}
           </Link>
           <h1 className="text-lg font-bold text-[var(--navy)] mt-1">Editar albarán</h1>
         </div>

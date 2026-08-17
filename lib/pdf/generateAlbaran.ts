@@ -1,3 +1,4 @@
+import fontkit from "@pdf-lib/fontkit";
 import { PDFDocument, PDFName, StandardFonts, rgb } from "pdf-lib";
 import { TEMPLATE_B64 } from "./template";
 import type { AlbaranHeader, LineItem } from "@/types/albaran";
@@ -9,9 +10,12 @@ import { lineTotal } from "@/lib/albaran/pricing";
 
 const PER_PAGE = 11;
 const ROW_Y = [604.5, 584.7, 564.9, 545.1, 525.3, 505.5, 485.7, 465.9, 445.7, 425.9, 406.1];
-const COL = { cod: 47, aantal: 347.6, prijs: 398.7, bedrag: 477.9 };
+const COL = { cod: 47, aantal: 347.6, prijs: 398.7, korting: 446.5, bedrag: 496.2 };
 const OMS_X = 98.8;
 const OMS_W = 340.6 - 98.8;
+const TABLE_HEADER_Y = 622;
+const TABLE_HEADER_H = 22;
+const TEMPLATE_BLUE = rgb(30 / 255, 71 / 255, 137 / 255);
 
 function b64ToBytes(b64: string): Uint8Array {
   const bin = atob(b64);
@@ -36,6 +40,12 @@ const linePrijs = (l: LineItem) => {
 
 export async function generateAlbaranPdf(header: AlbaranHeader, lines: LineItem[]): Promise<Uint8Array> {
   const doc = await PDFDocument.load(b64ToBytes(TEMPLATE_B64));
+  doc.registerFontkit(fontkit);
+  const bornaMediumBytes = await fetch("/fonts/Borna-Medium.otf").then(async (response) => {
+    if (!response.ok) throw new Error("No se ha podido cargar Borna Medium.");
+    return new Uint8Array(await response.arrayBuffer());
+  });
+  const bornaMedium = await doc.embedFont(bornaMediumBytes, { subset: true });
   const form = doc.getForm();
   const set = (name: string, val: unknown) => {
     try {
@@ -51,13 +61,24 @@ export async function generateAlbaranPdf(header: AlbaranHeader, lines: LineItem[
   set("naam_patient", header.naam_patient);
   set("geboortedatum", header.geboortedatum);
   set("behandelaar", header.behandelaar);
-  set("klant_regel2", header.klant_regel2);
+  // Este campo de la plantilla solo admite una línea y tapa el texto dibujado.
+  // Se colapsa su widget, conservando el resto de campos editables del PDF.
+  try {
+    const clinicAddressField = form.getTextField("klant_regel2");
+    clinicAddressField.setText("");
+    clinicAddressField.acroField.getWidgets().forEach((widget) =>
+      widget.setRectangle({ x: 0, y: 0, width: 0, height: 0 })
+    );
+  } catch {
+    // La plantilla puede no incluir el campo en versiones antiguas.
+  }
 
   const filled = lines.filter((l) => l.code || l.description);
   const overflow = filled.slice(PER_PAGE);
   const multipage = overflow.length > 0;
 
   const font = await doc.embedFont(StandardFonts.Helvetica);
+  const boldFont = await doc.embedFont(StandardFonts.HelveticaBold);
   const p1 = doc.getPages()[0];
 
   let tmpl = null;
@@ -84,12 +105,12 @@ export async function generateAlbaranPdf(header: AlbaranHeader, lines: LineItem[
   };
 
   const drawOms = (page: import("pdf-lib").PDFPage, y0: number, txt: string) => {
-    const ls = wrapAt(txt, 7);
+    const ls = wrapAt(txt, 9);
     if (ls.length <= 1) {
-      if (ls[0]) page.drawText(ls[0], { x: OMS_X, y: y0 + 5, size: 7, font, color: rgb(0, 0, 0) });
+      if (ls[0]) page.drawText(ls[0], { x: OMS_X, y: y0 + 5, size: 9, font, color: rgb(0, 0, 0) });
     } else {
-      page.drawText(ls[0], { x: OMS_X, y: y0 + 12, size: 7, font, color: rgb(0, 0, 0) });
-      page.drawText(ls[1], { x: OMS_X, y: y0 + 3, size: 7, font, color: rgb(0, 0, 0) });
+      page.drawText(ls[0], { x: OMS_X, y: y0 + 11, size: 9, font, color: rgb(0, 0, 0) });
+      page.drawText(ls[1], { x: OMS_X, y: y0 + 1, size: 9, font, color: rgb(0, 0, 0) });
     }
   };
 
@@ -97,12 +118,99 @@ export async function generateAlbaranPdf(header: AlbaranHeader, lines: LineItem[
     if (txt !== "" && txt != null) p.drawText(String(txt), { x, y, size, font, color: rgb(0, 0, 0) });
   };
 
+  const drawBorna = (page: import("pdf-lib").PDFPage, x: number, y: number, text: string, size: number) => {
+    if (!text) return;
+    page.drawText(text, { x, y, size, font: bornaMedium, color: TEMPLATE_BLUE });
+  };
+
   const drawRow = (page: import("pdf-lib").PDFPage, y0: number, l: LineItem) => {
     draw(page, COL.cod, y0 + 5, l.code);
     drawOms(page, y0, l.description);
     draw(page, COL.aantal, y0 + 5, l.qty);
     draw(page, COL.prijs, y0 + 5, linePrijs(l));
+    draw(page, COL.korting, y0 + 5, l.discount ? `${l.discount.replace(/\s*%?\s*$/, "")}%` : "");
     draw(page, COL.bedrag, y0 + 5, lineBedrag(l));
+  };
+
+  const drawTableHeader = (page: import("pdf-lib").PDFPage) => {
+    page.drawRectangle({ x: 340.6, y: TABLE_HEADER_Y, width: 211.5, height: TABLE_HEADER_H, color: rgb(0.33, 0.76, 0.78) });
+    [340.6, 390.8, 438.8, 486.5].forEach((x) =>
+      page.drawLine({ start: { x, y: TABLE_HEADER_Y + 4 }, end: { x, y: TABLE_HEADER_Y + TABLE_HEADER_H - 4 }, thickness: 1, color: rgb(1, 1, 1) })
+    );
+    const label = (text: string, x: number) => page.drawText(text, { x, y: 630, size: 8, font: boldFont, color: rgb(1, 1, 1) });
+    label("Aantal", 351);
+    label("Prij", 400);
+    label("Korting", 444);
+    label("Bedrag", 497);
+  };
+
+  // La plantilla reserva el rótulo a la izquierda y el valor de x=397 a x=552.
+  const CLINIC_ADDRESS_X = 397;
+  const CLINIC_ADDRESS_W = 150;
+  // Borna Medium completa para conservar toda la tipografía, incluidos acentos.
+  const CLINIC_ADDRESS_SIZE = 10;
+  const CLINIC_ADDRESS_LINE_HEIGHT = 10;
+  const CLINIC_ADDRESS_MAX_LINES = 3;
+
+  const wrapText = (text: string, width: number, size: number, maxLines: number) => {
+    const lines: string[] = [];
+    let line = "";
+
+    const addWord = (word: string) => {
+      if (bornaMedium.widthOfTextAtSize(word, size) <= width) return [word];
+      const parts: string[] = [];
+      let part = "";
+      for (const character of word) {
+        const candidate = part + character;
+        if (part && bornaMedium.widthOfTextAtSize(candidate, size) > width) {
+          parts.push(part);
+          part = character;
+        } else {
+          part = candidate;
+        }
+      }
+      if (part) parts.push(part);
+      return parts;
+    };
+
+    const words = text.trim().split(/\s+/).flatMap(addWord);
+    let truncated = false;
+    for (let index = 0; index < words.length; index++) {
+      const word = words[index];
+      const candidate = line ? `${line} ${word}` : word;
+      if (bornaMedium.widthOfTextAtSize(candidate, size) <= width) {
+        line = candidate;
+      } else {
+        if (line) lines.push(line);
+        line = word;
+        if (lines.length === maxLines) {
+          truncated = true;
+          break;
+        }
+      }
+    }
+    if (line && lines.length < maxLines) lines.push(line);
+
+    if (truncated) {
+      let lastLine = lines[maxLines - 1];
+      while (lastLine && bornaMedium.widthOfTextAtSize(`${lastLine}…`, size) > width) lastLine = lastLine.slice(0, -1);
+      lines[maxLines - 1] = `${lastLine}…`;
+    }
+    return lines;
+  };
+
+  const drawClinicAddress = (page: import("pdf-lib").PDFPage) => {
+    drawBorna(page, 313, 701.3, "Kliniek / adres", 10);
+    const clinicLines = wrapText(header.in_opdracht, CLINIC_ADDRESS_W, CLINIC_ADDRESS_SIZE, 1);
+    const addressLines = wrapText(
+      header.klant_regel2,
+      CLINIC_ADDRESS_W,
+      CLINIC_ADDRESS_SIZE,
+      CLINIC_ADDRESS_MAX_LINES - clinicLines.length
+    );
+    [...clinicLines, ...addressLines].forEach((line, index) => {
+      drawBorna(page, CLINIC_ADDRESS_X, 701.3 - index * CLINIC_ADDRESS_LINE_HEIGHT, line, CLINIC_ADDRESS_SIZE);
+    });
   };
 
   const drawHeaderVals = (page: import("pdf-lib").PDFPage) => {
@@ -114,9 +222,9 @@ export async function generateAlbaranPdf(header: AlbaranHeader, lines: LineItem[
       [121, 667.1, header.naam_patient],
       [462, 667.1, header.geboortedatum],
       [379, 718.2, header.behandelaar],
-      [313, 701.3, header.klant_regel2],
     ];
     H.forEach(([x, y, v]) => draw(page, x, y, v, 10));
+    drawClinicAddress(page);
   };
 
   const tot = filled.reduce((s, l) => s + lineTotal(l), 0);
@@ -132,6 +240,8 @@ export async function generateAlbaranPdf(header: AlbaranHeader, lines: LineItem[
   form.acroForm.dict.delete(PDFName.of("NeedAppearances"));
   form.getFields().forEach((f) => f.acroField.dict.delete(PDFName.of("AA")));
   form.updateFieldAppearances();
+  drawClinicAddress(p1);
+  drawTableHeader(p1);
 
   for (let pg = 0; pg < totalPages; pg++) {
     const isFirst = pg === 0;
@@ -140,6 +250,7 @@ export async function generateAlbaranPdf(header: AlbaranHeader, lines: LineItem[
     if (!isFirst && tmpl) {
       page.drawPage(tmpl);
       drawHeaderVals(page);
+      drawTableHeader(page);
     }
     const chunk = filled.slice(pg * PER_PAGE, (pg + 1) * PER_PAGE);
     chunk.forEach((l, i) => drawRow(page, ROW_Y[i], l));

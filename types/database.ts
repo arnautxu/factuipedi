@@ -19,6 +19,17 @@ export type Client = {
   klant_regel2: string | null;
   in_opdracht: string | null;
   notes: string | null;
+  clinic_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Clinic = {
+  id: string;
+  name: string;
+  behandelaar: string | null;
+  address: string | null;
+  notes: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -72,6 +83,7 @@ export type Database = {
     Tables: {
       catalog_items: { Row: CatalogItem; Insert: Partial<CatalogItem>; Update: Partial<CatalogItem> };
       clients: { Row: Client; Insert: Partial<Client>; Update: Partial<Client> };
+      clinics: { Row: Clinic; Insert: Partial<Clinic>; Update: Partial<Clinic> };
       delivery_notes: { Row: DeliveryNote; Insert: Partial<DeliveryNote>; Update: Partial<DeliveryNote> };
       delivery_note_lines: { Row: DeliveryNoteLine; Insert: Partial<DeliveryNoteLine>; Update: Partial<DeliveryNoteLine> };
       uploaded_documents: { Row: UploadedDocument; Insert: Partial<UploadedDocument>; Update: Partial<UploadedDocument> };

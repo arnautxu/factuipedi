@@ -14,10 +14,8 @@ export function ClientsToolbar({ clients }: { clients: Client[] }) {
 
   const handleExport = () => {
     const rows = [
-      ["Naam patiënt", "Geboorte datum", "Behandelaar", "Kliniek / adres", "In opdracht gemaakt van", "Notes"],
+      ["Behandelaar", "Kliniek / adres", "In opdracht gemaakt van", "Notes"],
       ...clients.map((c) => [
-        c.naam_patient ?? "",
-        c.geboortedatum ?? "",
         c.behandelaar ?? "",
         c.klant_regel2 ?? "",
         c.in_opdracht ?? "",
@@ -26,7 +24,7 @@ export function ClientsToolbar({ clients }: { clients: Client[] }) {
     ];
     const ws = XLSX.utils.aoa_to_sheet(rows);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Clientes");
+    XLSX.utils.book_append_sheet(wb, ws, "Pacientes");
     XLSX.writeFile(wb, "clients-noadentlab.xlsx");
   };
 
@@ -43,7 +41,7 @@ export function ClientsToolbar({ clients }: { clients: Client[] }) {
           href="/clientes/nuevo"
           className="px-3 py-2 rounded-lg text-sm font-semibold text-white bg-[var(--navy)] transition-colors duration-150 ease-out hover:bg-[var(--navy-deep)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)] focus-visible:ring-offset-1"
         >
-          + Nuevo cliente
+          + Nuevo paciente
         </Link>
       </div>
 

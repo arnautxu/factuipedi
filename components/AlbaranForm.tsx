@@ -7,13 +7,7 @@ const FIELD: { key: keyof AlbaranHeader; label: string; date?: boolean }[] = [
   { key: "pakbonnummer", label: "Pakbonnummer" },
   { key: "inkomstdatum", label: "Inkomstdatum", date: true },
   { key: "uitgiftedatum", label: "Uitgiftedatum", date: true },
-  { key: "naam_patient", label: "Naam patiënt" },
   { key: "geboortedatum", label: "Geboorte datum", date: true },
-];
-
-const FIELD2: { key: keyof AlbaranHeader; label: string }[] = [
-  { key: "behandelaar", label: "Behandelaar" },
-  { key: "klant_regel2", label: "Kliniek / adres" },
 ];
 
 export default function AlbaranForm({
@@ -24,32 +18,27 @@ export default function AlbaranForm({
   onChange: (header: AlbaranHeader) => void;
 }) {
   const set = (key: keyof AlbaranHeader, value: string) => onChange({ ...header, [key]: value });
+  const toDateInput = (value: string) => {
+    const match = value.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+    return match ? `${match[3]}-${match[2]}-${match[1]}` : value;
+  };
+  const fromDateInput = (value: string) => {
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    return match ? `${match[3]}-${match[2]}-${match[1]}` : value;
+  };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-4">
-      <div className="space-y-4">
-        {FIELD.map((f) => (
-          <Field
-            key={f.key}
-            id={`albaran-${f.key}`}
-            label={f.label}
-            placeholder={f.date ? "dd-mm-jjjj" : undefined}
-            value={header[f.key]}
-            onChange={(v) => set(f.key, v)}
-          />
-        ))}
-      </div>
-      <div className="space-y-4">
-        {FIELD2.map((f) => (
-          <Field
-            key={f.key}
-            id={`albaran-${f.key}`}
-            label={f.label}
-            value={header[f.key]}
-            onChange={(v) => set(f.key, v)}
-          />
-        ))}
-      </div>
+    <div className="grid grid-cols-1 gap-y-4 md:grid-cols-2 md:gap-x-10">
+      {FIELD.map((f) => (
+        <Field
+          key={f.key}
+          id={`albaran-${f.key}`}
+          label={f.label}
+          type={f.date ? "date" : undefined}
+          value={f.date ? toDateInput(header[f.key]) : header[f.key]}
+          onChange={(v) => set(f.key, f.date ? fromDateInput(v) : v)}
+        />
+      ))}
     </div>
   );
 }
