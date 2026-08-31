@@ -123,18 +123,38 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
   };
 
   const handleExport = () => {
-    const wb = XLSX.utils.book_new();
-    const byCat = new Map<string, CatalogItem[]>();
-    for (const it of items) {
-      if (!byCat.has(it.cat)) byCat.set(it.cat, []);
-      byCat.get(it.cat)!.push(it);
+    try {
+      const wb = XLSX.utils.book_new();
+      const byCat = new Map<string, CatalogItem[]>();
+      for (const it of items) {
+        if (!byCat.has(it.cat)) byCat.set(it.cat, []);
+        byCat.get(it.cat)!.push(it);
+      }
+      for (const [cat, its] of byCat) {
+        const rows = [["COD", "DESCRIPCION", "PRECIO"], ...its.map((it) => [it.code, it.description, it.price_text || it.price || ""])];
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        XLSX.utils.book_append_sheet(wb, ws, cat.slice(0, 31) || "Varios");
+      }
+
+      // XLSX.writeFile does not consistently trigger a download in current
+      // browser bundles. Creating the Blob ourselves works in Safari and Chrome.
+      const bytes = XLSX.write(wb, { bookType: "xlsx", type: "array", compression: true });
+      const blob = new Blob([bytes], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "catalogo-noadentlab.xlsx";
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+      setMessage("✓ Excel descargado.");
+    } catch (err) {
+      setMessage("No se ha podido generar el Excel: " + (err instanceof Error ? err.message : String(err)));
     }
-    for (const [cat, its] of byCat) {
-      const rows = [["COD", "DESCRIPCION", "PRECIO"], ...its.map((it) => [it.code, it.description, it.price_text || it.price || ""])];
-      const ws = XLSX.utils.aoa_to_sheet(rows);
-      XLSX.utils.book_append_sheet(wb, ws, cat.slice(0, 31) || "Varios");
-    }
-    XLSX.writeFile(wb, "catalogo-noadentlab.xlsx");
   };
 
   const handleImportFile = (file: File) => {
