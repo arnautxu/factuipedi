@@ -60,7 +60,17 @@ function groupNotes(notes: DeliveryNote[]): NoteGroup[] {
     }));
 }
 
-export default function DeliveryNotesTable({ clientId, clinic, notes }: { clientId: string; clinic: Clinic | null; notes: DeliveryNote[] }) {
+export default function DeliveryNotesTable({
+  clientId,
+  clinic,
+  notes,
+  originalDocumentUrls = {},
+}: {
+  clientId: string;
+  clinic: Clinic | null;
+  notes: DeliveryNote[];
+  originalDocumentUrls?: Record<string, string>;
+}) {
   const combinable = notes.filter((note) => note.source !== "combined");
   const [selected, setSelected] = useState<Set<string>>(new Set(combinable.map((note) => note.id)));
   const [generatingKey, setGeneratingKey] = useState<string | null>(null);
@@ -137,18 +147,31 @@ export default function DeliveryNotesTable({ clientId, clinic, notes }: { client
                   <ul className="divide-y divide-[var(--line-soft)]" aria-label={`Albaranes en ${location.label}`}>
                     {location.notes.map((note) => {
                       const selectable = note.source !== "combined";
+                      const originalDocumentUrl = originalDocumentUrls[note.id];
                       return (
                         <li key={note.id} className="group flex items-center gap-3 px-3 py-3 transition-colors hover:bg-slate-50 sm:px-4">
                           <div className="flex h-5 w-5 shrink-0 items-center justify-center">
                             {selectable && <input type="checkbox" checked={selected.has(note.id)} onChange={() => toggle(note.id)} aria-label={`Seleccionar albarán ${note.pakbonnummer || note.id} para combinar`} className="h-4 w-4 rounded border-[var(--line)] accent-[var(--navy)]" />}
                           </div>
-                          <Link href={`/clientes/${clientId}/albaran/${note.id}`} className="min-w-0 flex-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]">
-                            <div className="flex min-w-0 items-center justify-between gap-3">
-                              <span className="truncate text-sm font-semibold text-[var(--navy)] group-hover:underline">{note.pakbonnummer || "Albarán sin número"}</span>
-                              <span className="shrink-0 text-sm font-semibold tabular-nums text-[var(--ink)]">{eur(note.total)}</span>
-                            </div>
-                            <div className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-[var(--muted)]"><span>{note.uitgiftedatum || note.inkomstdatum || "Sin fecha"}</span><span aria-hidden="true">·</span><span>{sourceLabel[note.source]}</span></div>
-                          </Link>
+                          <div className="min-w-0 flex-1">
+                            <Link href={`/clientes/${clientId}/albaran/${note.id}`} className="block rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]">
+                              <div className="flex min-w-0 items-center justify-between gap-3">
+                                <span className="truncate text-sm font-semibold text-[var(--navy)] group-hover:underline">{note.pakbonnummer || "Albarán sin número"}</span>
+                                <span className="shrink-0 text-sm font-semibold tabular-nums text-[var(--ink)]">{eur(note.total)}</span>
+                              </div>
+                              <div className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-[var(--muted)]"><span>{note.uitgiftedatum || note.inkomstdatum || "Sin fecha"}</span><span aria-hidden="true">·</span><span>{sourceLabel[note.source]}</span></div>
+                            </Link>
+                            {originalDocumentUrl && (
+                              <a
+                                href={originalDocumentUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="mt-1 inline-block rounded text-xs font-semibold text-[var(--navy)] underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
+                              >
+                                Ver albarán original
+                              </a>
+                            )}
+                          </div>
                         </li>
                       );
                     })}

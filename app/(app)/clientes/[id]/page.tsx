@@ -2,10 +2,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import ClientForm from "@/components/ClientForm";
 import DeliveryNotesTable from "@/components/DeliveryNotesTable";
-import ImportedWorksList from "@/components/ImportedWorksList";
 import DeleteClientButton from "@/components/DeleteClientButton";
 import { Card } from "@/components/ui/Card";
-import { getClient, getClinic, getClinics, getDeliveryNotesForClient, getImportedWorksForClient } from "@/lib/supabase/queries";
+import {
+  getClient,
+  getClinic,
+  getClinics,
+  getDeliveryNoteDocumentUrl,
+  getDeliveryNotesForClient,
+  getUploadedDocumentsForClient,
+} from "@/lib/supabase/queries";
 import { updateClientAction, deleteClientAction } from "../actions";
 
 export default async function ClienteDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -13,7 +19,26 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
   const client = await getClient(id);
   if (!client) notFound();
 
-  const [notes, importedWorks] = await Promise.all([getDeliveryNotesForClient(id), getImportedWorksForClient(id)]);
+  const [notes, uploadedDocuments] = await Promise.all([getDeliveryNotesForClient(id), getUploadedDocumentsForClient(id)]);
+  const originalDocumentByNote = new Map<string, (typeof uploadedDocuments)[number]>();
+  for (const document of uploadedDocuments) {
+    if (document.delivery_note_id && !originalDocumentByNote.has(document.delivery_note_id)) {
+      originalDocumentByNote.set(document.delivery_note_id, document);
+    }
+  }
+  const originalDocumentUrlEntries = await Promise.all(
+    [...originalDocumentByNote.entries()].map(async ([noteId, document]) => {
+      try {
+        return [noteId, await getDeliveryNoteDocumentUrl(document.storage_path)] as const;
+      } catch {
+        // A missing legacy file must not prevent the patient's records from loading.
+        return null;
+      }
+    })
+  );
+  const originalDocumentUrls = Object.fromEntries(
+    originalDocumentUrlEntries.filter((entry): entry is readonly [string, string] => entry !== null)
+  );
   const monthlyClinicId = notes.find((note) => note.clinic_id)?.clinic_id ?? client.clinic_id;
   const [clinics, monthlyClinic] = await Promise.all([
     getClinics(),
@@ -49,10 +74,8 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
             + Subir albarán externo
           </Link>
         </div>
-        <DeliveryNotesTable clientId={id} clinic={monthlyClinic} notes={notes} />
+        <DeliveryNotesTable clientId={id} clinic={monthlyClinic} notes={notes} originalDocumentUrls={originalDocumentUrls} />
       </Card>
-
-      <ImportedWorksList clientId={id} works={importedWorks} />
     </div>
   );
 }
