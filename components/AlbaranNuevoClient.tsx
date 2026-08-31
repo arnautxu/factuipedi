@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import AlbaranForm from "@/components/AlbaranForm";
 import LineItemsTable from "@/components/LineItemsTable";
 import ClientPicker from "@/components/ClientPicker";
@@ -16,7 +17,7 @@ import { saveAlbaranAction } from "@/app/(app)/albaran/actions";
 
 const DRAFT_KEY = "albaran-nuevo-draft";
 
-type Draft = { header: AlbaranHeader; lines: LineItem[]; clientId: string | null };
+type Draft = { header: AlbaranHeader; lines: LineItem[]; clientId: string | null; clinicId: string | null };
 
 export default function AlbaranNuevoClient({ catalog, clients, clinics }: { catalog: CatalogEntry[]; clients: Client[]; clinics: Clinic[] }) {
   const [header, setHeader] = useState(emptyHeader());
@@ -26,6 +27,7 @@ export default function AlbaranNuevoClient({ catalog, clients, clinics }: { cata
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
+  const [saved, setSaved] = useState<{ noteId: string; clientId: string } | null>(null);
   const [confirmingNew, setConfirmingNew] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
@@ -47,6 +49,7 @@ export default function AlbaranNuevoClient({ catalog, clients, clinics }: { cata
         if (draft.header) setHeader(draft.header);
         if (draft.lines?.length) setLines(draft.lines);
         if (draft.clientId !== undefined) setClientId(draft.clientId);
+        if (draft.clinicId !== undefined) setClinicId(draft.clinicId);
       }
     } catch {
       // Esborrany corrupte o localStorage no disponible — s'ignora i es comença de zero.
@@ -57,11 +60,11 @@ export default function AlbaranNuevoClient({ catalog, clients, clinics }: { cata
   useEffect(() => {
     if (!hydrated) return;
     try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({ header, lines, clientId } satisfies Draft));
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ header, lines, clientId, clinicId } satisfies Draft));
     } catch {
       // localStorage ple o no disponible — l'esborrany simplement no es desa.
     }
-  }, [hydrated, header, lines, clientId]);
+  }, [hydrated, header, lines, clientId, clinicId]);
 
   const clearDraft = () => {
     try {
@@ -77,16 +80,30 @@ export default function AlbaranNuevoClient({ catalog, clients, clinics }: { cata
     setClientId(null);
     setClinicId(null);
     setMessage(null);
+    setSaved(null);
     setConfirmingNew(false);
     clearDraft();
   };
 
   const handleSave = async () => {
+    if (saved) {
+      setMessage({ type: "success", text: "Este albarán ya está guardado." });
+      return;
+    }
+    if (!clinicId) {
+      setMessage({ type: "error", text: "Selecciona una clínica antes de guardar." });
+      return;
+    }
+    if (!clientId && !header.naam_patient.trim()) {
+      setMessage({ type: "error", text: "Escribe o selecciona un paciente antes de guardar." });
+      return;
+    }
     setSaving(true);
     setMessage(null);
     try {
-      await saveAlbaranAction(clientId, header, lines);
+      const created = await saveAlbaranAction(clientId, clinicId, header, lines);
       setMessage({ type: "success", text: "Albarán guardado correctamente." });
+      setSaved(created);
       clearDraft();
     } catch (err) {
       setMessage({ type: "error", text: "Error al guardar el albarán: " + (err instanceof Error ? err.message : String(err)) });
@@ -96,6 +113,14 @@ export default function AlbaranNuevoClient({ catalog, clients, clinics }: { cata
   };
 
   const handleGeneratePdf = async () => {
+    if (!clinicId) {
+      setMessage({ type: "error", text: "Selecciona una clínica antes de descargar." });
+      return;
+    }
+    if (!clientId && !header.naam_patient.trim()) {
+      setMessage({ type: "error", text: "Escribe o selecciona un paciente antes de descargar." });
+      return;
+    }
     setGenerating(true);
     setMessage(null);
     try {
@@ -106,7 +131,10 @@ export default function AlbaranNuevoClient({ catalog, clients, clinics }: { cata
       // PDF s'hagi generat bé. Desant primer evitem que la descàrrega
       // interfereixi amb el desat.
       try {
-        await saveAlbaranAction(clientId, header, lines);
+        if (!saved) {
+          const created = await saveAlbaranAction(clientId, clinicId, header, lines);
+          setSaved(created);
+        }
         clearDraft();
       } catch (saveErr) {
         setMessage({
@@ -157,6 +185,14 @@ export default function AlbaranNuevoClient({ catalog, clients, clinics }: { cata
         </div>
       )}
 
+      {saved && (
+        <div role="status" className="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--tint)] px-4 py-3 text-sm">
+          <span className="font-medium text-[var(--navy)]">Albarán creado.</span>
+          <Link href={`/clientes/${saved.clientId}/albaran/${saved.noteId}`} className="font-semibold text-[var(--navy)] underline">Ver albarán</Link>
+          <button type="button" onClick={handleNew} className="font-semibold text-[var(--navy)] underline">Crear otro</button>
+        </div>
+      )}
+
       {reviewItems.length > 0 && (
         <div className="text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-3">
           <b>Revisar:</b> {reviewItems.map((p) => `${p.code} (${p.priceText})`).join(", ")} — sin precio numérico; ponlo a mano en la línea.
@@ -170,9 +206,18 @@ export default function AlbaranNuevoClient({ catalog, clients, clinics }: { cata
           clinicId={clinicId}
           selectedId={clientId}
           onSelect={(client, patch) => {
+            if (!client) {
+              setClientId(null);
+              setHeader((current) => ({ ...current, ...patch, naam_patient: "" }));
+              return;
+            }
             setClientId(client?.id ?? null);
             setClinicId(client?.clinic_id ?? clinicId);
             setHeader((h) => ({ ...h, ...patch }));
+          }}
+          onNewName={(name) => {
+            setClientId(null);
+            setHeader((current) => ({ ...current, naam_patient: name }));
           }}
         />
 
@@ -192,7 +237,7 @@ export default function AlbaranNuevoClient({ catalog, clients, clinics }: { cata
                 ...current,
                 behandelaar: clinic?.behandelaar ?? "",
                 klant_regel2: clinic?.address ?? "",
-                in_opdracht: clinic?.name ?? current.in_opdracht,
+                in_opdracht: clinic?.name ?? "",
               }));
             }}
             className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm outline-none transition-shadow duration-150 ease-out focus:ring-2 focus:ring-[var(--focus)]"

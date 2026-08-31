@@ -11,6 +11,12 @@ export default function ClinicForm({ clinic, action, submitLabel }: { clinic?: P
       </div>
       <UncontrolledTextarea label="Dirección" name="address" rows={3} defaultValue={clinic?.address ?? ""} />
       <UncontrolledTextarea label="Notas" name="notes" rows={3} defaultValue={clinic?.notes ?? ""} />
+      {clinic?.id && (
+        <label className="flex items-center gap-2 text-sm text-[var(--ink)]">
+          <input type="checkbox" name="active" value="true" defaultChecked={clinic.active !== false} className="h-4 w-4 rounded border-[var(--line)] accent-[var(--navy)]" />
+          Clínica activa (visible al crear albaranes)
+        </label>
+      )}
       <Button type="submit">{submitLabel}</Button>
     </form>
   );

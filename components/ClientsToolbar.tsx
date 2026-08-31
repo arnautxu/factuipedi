@@ -14,8 +14,10 @@ export function ClientsToolbar({ clients }: { clients: Client[] }) {
 
   const handleExport = () => {
     const rows = [
-      ["Behandelaar", "Kliniek / adres", "In opdracht gemaakt van", "Notes"],
+      ["Paciente", "Clínica", "Behandelaar", "Kliniek / dirección", "In opdracht gemaakt van", "Notas"],
       ...clients.map((c) => [
+        c.naam_patient ?? "",
+        c.clinic_id ?? "",
         c.behandelaar ?? "",
         c.klant_regel2 ?? "",
         c.in_opdracht ?? "",
@@ -25,7 +27,8 @@ export function ClientsToolbar({ clients }: { clients: Client[] }) {
     const ws = XLSX.utils.aoa_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Pacientes");
-    XLSX.writeFile(wb, "clients-noadentlab.xlsx");
+    ws["!cols"] = [{ wch: 28 }, { wch: 38 }, { wch: 24 }, { wch: 42 }, { wch: 30 }, { wch: 36 }];
+    XLSX.writeFile(wb, "pacientes-noadentlab.xlsx", { bookType: "xlsx", compression: true });
   };
 
   return (

@@ -10,12 +10,14 @@ export default function ClientPicker({
   clinicId,
   selectedId,
   onSelect,
+  onNewName,
 }: {
   clients: Client[];
   clinics: Clinic[];
   clinicId: string | null;
   selectedId: string | null;
   onSelect: (client: Client | null, header: Partial<AlbaranHeader>) => void;
+  onNewName: (name: string) => void;
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -58,7 +60,7 @@ export default function ClientPicker({
   return (
     <div className="relative">
       <label htmlFor={inputId} className="block text-xs font-semibold text-[var(--muted)] uppercase tracking-wide mb-1">
-        Paciente existente
+        Paciente
       </label>
       {selected ? (
         <div className="flex items-center justify-between rounded-lg border border-[var(--line)] bg-[var(--tint)] px-3 py-2 text-sm">
@@ -80,8 +82,10 @@ export default function ClientPicker({
           aria-expanded={open && filtered.length > 0}
           aria-controls={listboxId}
           onChange={(e) => {
-            setQuery(e.target.value);
+            const name = e.target.value;
+            setQuery(name);
             setActiveIndex(-1);
+            onNewName(name);
           }}
           onFocus={() => setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 180)}
@@ -101,7 +105,7 @@ export default function ClientPicker({
               setActiveIndex(-1);
             }
           }}
-          placeholder="Busca un paciente para rellenar el formulario automáticamente…"
+          placeholder="Busca un paciente o escribe uno nuevo…"
           className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm outline-none transition-shadow duration-150 ease-out focus:ring-2 focus:ring-[var(--focus)]"
         />
       )}
@@ -127,6 +131,11 @@ export default function ClientPicker({
             </div>
           ))}
         </div>
+      )}
+      {open && !selected && query.trim() && filtered.length === 0 && (
+        <p className="mt-1 rounded-lg border border-dashed border-[var(--line)] bg-[var(--tint)] px-3 py-2 text-xs text-[var(--muted)]">
+          Se creará “{query.trim()}” al guardar este albarán.
+        </p>
       )}
     </div>
   );

@@ -11,5 +11,5 @@ export default async function ClinicaPage({ params }: { params: Promise<{ id: st
   const clinic = await getClinic(id);
   if (!clinic) notFound();
   const notes = await getDeliveryNotesForClinic(id);
-  return <div className="space-y-6"><div><h1 className="text-lg font-bold text-[var(--navy)]">{clinic.name}</h1><Link href="/clinicas" className="text-xs text-[var(--muted)] hover:underline">← Volver a clínicas</Link></div><ClinicForm clinic={clinic} action={updateClinicAction.bind(null, id)} submitLabel="Guardar cambios" /><Card className="px-5 py-3"><h2 className="text-sm font-bold text-[var(--navy)]">Albaranes de pacientes por mes</h2><ClinicMonthlyNotes clinicId={id} notes={notes} /></Card></div>;
+  return <div className="space-y-6"><div><h1 className="text-lg font-bold text-[var(--navy)]">{clinic.name}</h1><Link href="/clinicas" className="text-xs text-[var(--muted)] hover:underline">← Volver a clínicas</Link></div><ClinicForm clinic={clinic} action={updateClinicAction.bind(null, id)} submitLabel="Guardar cambios" /><Card className="px-5 py-3"><h2 className="text-sm font-bold text-[var(--navy)]">Facturación mensual</h2><ClinicMonthlyNotes clinic={clinic} notes={notes} /></Card></div>;
 }

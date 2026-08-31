@@ -30,15 +30,18 @@ export type Clinic = {
   behandelaar: string | null;
   address: string | null;
   notes: string | null;
+  active: boolean;
   created_at: string;
   updated_at: string;
 };
 
 export type DeliveryNoteSource = "created" | "uploaded" | "combined";
+export type MonthlyStatus = "pending" | "reviewed" | "prepared" | "invoiced";
 
 export type DeliveryNote = {
   id: string;
   client_id: string | null;
+  clinic_id: string | null;
   pakbonnummer: string | null;
   inkomstdatum: string | null;
   uitgiftedatum: string | null;
@@ -49,6 +52,7 @@ export type DeliveryNote = {
   kleur: string | null;
   in_opdracht: string | null;
   source: DeliveryNoteSource;
+  monthly_status: MonthlyStatus;
   total: number | null;
   pdf_storage_path: string | null;
   created_at: string;

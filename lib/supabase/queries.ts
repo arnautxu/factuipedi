@@ -105,7 +105,7 @@ export async function getClients(search?: string): Promise<Client[]> {
 
 export async function getClinics(): Promise<Clinic[]> {
   const supabase = createAdminClient();
-  const { data, error } = await supabase.from("clinics").select("*").order("name", { ascending: true });
+  const { data, error } = await supabase.from("clinics").select("*").eq("active", true).order("name", { ascending: true });
   if (error) throw error;
   return (data ?? []) as Clinic[];
 }
@@ -133,11 +133,7 @@ export async function updateClinic(id: string, input: Partial<Clinic>): Promise<
 
 export async function getDeliveryNotesForClinic(clinicId: string): Promise<DeliveryNote[]> {
   const supabase = createAdminClient();
-  const { data: clientRows, error: clientsError } = await supabase.from("clients").select("id").eq("clinic_id", clinicId);
-  if (clientsError) throw clientsError;
-  const clientIds = (clientRows ?? []).map((client) => client.id);
-  if (!clientIds.length) return [];
-  const { data, error } = await supabase.from("delivery_notes").select("*").in("client_id", clientIds).neq("source", "combined").order("created_at", { ascending: false });
+  const { data, error } = await supabase.from("delivery_notes").select("*").eq("clinic_id", clinicId).neq("source", "combined").order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as DeliveryNote[];
 }
@@ -249,6 +245,47 @@ export async function createDeliveryNoteWithLines(
   }
 
   return noteRow;
+}
+
+export async function createPatientAndDeliveryNote(
+  clientId: string | null,
+  clinicId: string,
+  header: AlbaranHeader,
+  lines: LineItem[],
+  source: DeliveryNote["source"] = "created"
+): Promise<{ noteId: string; clientId: string }> {
+  const supabase = createAdminClient();
+  const filled = lines.filter((line) => line.code || line.description);
+  const total = filled.reduce((sum, line) => sum + lineTotal(line), 0);
+  const rpcLines = filled.map((line) => ({
+    ...line,
+    qty: line.qty.trim() ? String(parseFloat(line.qty.replace(",", "."))) : "",
+    price: line.price.trim() ? String(parseFloat(line.price.replace(",", "."))) : "",
+  }));
+  if (rpcLines.some((line) => (line.qty && !Number.isFinite(Number(line.qty))) || (line.price && !Number.isFinite(Number(line.price))))) {
+    throw new Error("Revisa las cantidades y los importes antes de guardar.");
+  }
+  const { data, error } = await supabase.rpc("create_patient_and_delivery_note", {
+    p_client_id: clientId,
+    p_clinic_id: clinicId,
+    p_header: header,
+    p_lines: rpcLines,
+    p_total: total,
+    p_source: source,
+  });
+  if (error) throw error;
+  const noteId = String(data ?? "");
+  if (!noteId) throw new Error("No se ha podido crear el albarán.");
+  const note = await getDeliveryNote(noteId);
+  if (!note?.client_id) throw new Error("El albarán no ha quedado asociado a un paciente.");
+  return { noteId, clientId: note.client_id };
+}
+
+export async function updateMonthlyStatus(noteIds: string[], monthlyStatus: DeliveryNote["monthly_status"]): Promise<void> {
+  if (!noteIds.length) return;
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("delivery_notes").update({ monthly_status: monthlyStatus }).in("id", noteIds);
+  if (error) throw error;
 }
 
 export async function getDeliveryNote(id: string): Promise<DeliveryNote | null> {

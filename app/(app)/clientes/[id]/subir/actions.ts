@@ -18,6 +18,9 @@ export async function uploadAndExtractAction(
   if (!(file instanceof File) || file.size === 0) {
     return { error: "Ningún archivo seleccionado." };
   }
+  if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+    return { error: "El archivo debe ser un PDF." };
+  }
 
   const doc = await uploadDeliveryNoteDocument(clientId, file);
 

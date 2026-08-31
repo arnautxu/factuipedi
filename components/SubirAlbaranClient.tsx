@@ -18,15 +18,23 @@ export default function SubirAlbaranClient({ clientId }: { clientId: string }) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleFile = async (file: File) => {
-    setState({ status: "uploading" });
-    const formData = new FormData();
-    formData.set("file", file);
-    const result = await uploadAndExtractAction(clientId, formData);
-    if ("error" in result) {
-      setState({ status: "error", message: result.error });
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      setState({ status: "error", message: "Selecciona un archivo PDF." });
       return;
     }
-    setState({ status: "ready", documentId: result.documentId, extracted: result.extracted });
+    setState({ status: "uploading" });
+    try {
+      const formData = new FormData();
+      formData.set("file", file);
+      const result = await uploadAndExtractAction(clientId, formData);
+      if ("error" in result) {
+        setState({ status: "error", message: result.error });
+        return;
+      }
+      setState({ status: "ready", documentId: result.documentId, extracted: result.extracted });
+    } catch (err) {
+      setState({ status: "error", message: "No se ha podido procesar el PDF: " + (err instanceof Error ? err.message : String(err)) });
+    }
   };
 
   if (state.status === "ready") {

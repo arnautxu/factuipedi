@@ -1,10 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import type { DeliveryNote } from "@/types/database";
-import { generateAlbaranPdf, downloadPdf } from "@/lib/pdf/generateAlbaran";
-import { getClinicCombinedLinesAction, saveClinicCombinedInvoiceAction } from "@/app/(app)/clinicas/actions";
+import { useMemo, useState, useTransition } from "react";
+import * as XLSX from "xlsx";
+import type { Clinic, DeliveryNote, MonthlyStatus } from "@/types/database";
+import { generateMonthlyInvoicePdf, downloadMonthlyInvoicePdf } from "@/lib/pdf/generateMonthlyInvoice";
+import { updateClinicMonthlyStatusAction } from "@/app/(app)/clinicas/actions";
 import { Button } from "@/components/ui/Button";
+
+const STATUS: Record<MonthlyStatus, string> = { pending: "Pendiente", reviewed: "Revisado", prepared: "Preparado", invoiced: "Facturado" };
+const euro = (value: number | null) => (value ?? 0).toLocaleString("es-ES", { style: "currency", currency: "EUR" });
 
 function monthKey(note: DeliveryNote) {
   const value = note.uitgiftedatum || note.inkomstdatum || "";
@@ -15,21 +19,40 @@ function monthKey(note: DeliveryNote) {
   return "sin-fecha";
 }
 
-export default function ClinicMonthlyNotes({ clinicId, notes }: { clinicId: string; notes: DeliveryNote[] }) {
+function monthLabel(key: string) {
+  if (key === "sin-fecha") return "Sin fecha";
+  return new Intl.DateTimeFormat("es-ES", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${key}-01T00:00:00Z`));
+}
+
+export default function ClinicMonthlyNotes({ clinic, notes }: { clinic: Clinic; notes: DeliveryNote[] }) {
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const groups = Object.entries(notes.reduce<Record<string, DeliveryNote[]>>((all, note) => { const key = monthKey(note); (all[key] ??= []).push(note); return all; }, {})).sort(([a], [b]) => b.localeCompare(a));
-  const download = async (key: string, monthNotes: DeliveryNote[]) => {
+  const [pending, startTransition] = useTransition();
+  const groups = useMemo(() => Object.entries(notes.reduce<Record<string, DeliveryNote[]>>((all, note) => { const key = monthKey(note); (all[key] ??= []).push(note); return all; }, {})).sort(([a], [b]) => b.localeCompare(a)), [notes]);
+
+  const exportRows = (key: string, monthNotes: DeliveryNote[], type: "xlsx" | "csv") => {
+    const rows = monthNotes.map((note, index) => ({
+      Orden: index + 1, Albarán: note.pakbonnummer || note.id.slice(0, 8), Fecha: note.uitgiftedatum || note.inkomstdatum || "",
+      Paciente: note.naam_patient || "", Importe: note.total ?? 0, Estado: STATUS[note.monthly_status],
+    }));
+    const sheet = XLSX.utils.json_to_sheet(rows);
+    const book = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(book, sheet, "Factura mensual");
+    XLSX.writeFile(book, `factura-mensual-${key}-${clinic.name}`.replace(/[^\w.-]/g, "_") + `.${type}`, { bookType: type === "csv" ? "csv" : "xlsx" });
+  };
+
+  const downloadInvoice = async (key: string, monthNotes: DeliveryNote[]) => {
     setLoading(key); setError(null);
     try {
-      const { header, lines } = await getClinicCombinedLinesAction(clinicId, monthNotes.map((note) => note.id));
-      if (!lines.length) throw new Error("Los albaranes de este mes no tienen líneas.");
-      const pdf = await generateAlbaranPdf(header, lines);
-      await saveClinicCombinedInvoiceAction(clinicId, header, lines);
-      downloadPdf(pdf, `clinica-${key}`);
-    } catch (err) { setError(err instanceof Error ? err.message : "No se ha podido generar el albarán."); }
+      const pdf = await generateMonthlyInvoicePdf({ clinic, period: monthLabel(key), notes: monthNotes });
+      downloadMonthlyInvoicePdf(pdf, key, clinic.name);
+    } catch (err) { setError(err instanceof Error ? err.message : "No se ha podido generar la factura mensual."); }
     finally { setLoading(null); }
   };
-  if (!groups.length) return <p className="py-6 text-sm text-[var(--muted)]">Todavía no hay albaranes de pacientes asociados a esta clínica.</p>;
-  return <div className="divide-y divide-[var(--line)]">{groups.map(([key, monthNotes]) => <div key={key} className="flex items-center justify-between gap-4 py-4"><div><p className="font-semibold text-[var(--navy)]">{key === "sin-fecha" ? "Sin fecha" : new Intl.DateTimeFormat("es-ES", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${key}-01T00:00:00Z`))}</p><p className="mt-1 text-xs text-[var(--muted)]">{monthNotes.length} {monthNotes.length === 1 ? "albarán" : "albaranes"} de pacientes</p></div><Button variant="secondary" disabled={loading !== null} onClick={() => download(key, monthNotes)}>{loading === key ? "Generando…" : "Descargar conjunto"}</Button></div>)}{error && <p role="alert" className="py-3 text-sm text-red-700">{error}</p>}</div>;
+
+  if (!groups.length) return <p className="py-6 text-sm text-[var(--muted)]">Todavía no hay trabajos de esta clínica.</p>;
+  return <div className="divide-y divide-[var(--line)]">{groups.map(([key, monthNotes]) => {
+    const total = monthNotes.reduce((sum, note) => sum + (note.total ?? 0), 0);
+    return <section key={key} className="py-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-semibold capitalize text-[var(--navy)]">{monthLabel(key)}</h3><p className="mt-1 text-xs text-[var(--muted)]">{monthNotes.length} {monthNotes.length === 1 ? "trabajo" : "trabajos"} · Total {euro(total)}</p></div><div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={loading !== null} onClick={() => downloadInvoice(key, monthNotes)}>{loading === key ? "Generando…" : "Descargar factura PDF"}</Button><Button variant="secondary" onClick={() => exportRows(key, monthNotes, "xlsx")}>Excel</Button><Button variant="secondary" onClick={() => exportRows(key, monthNotes, "csv")}>CSV</Button></div></div><div className="mt-4 overflow-x-auto rounded-xl border border-[var(--line)]"><table className="min-w-[680px] w-full text-sm"><thead><tr className="border-b border-[var(--line)] text-left text-xs uppercase tracking-wide text-[var(--muted)]"><th className="px-3 py-2">Albarán</th><th className="px-3 py-2">Fecha</th><th className="px-3 py-2">Paciente</th><th className="px-3 py-2 text-right">Importe</th><th className="px-3 py-2">Estado</th></tr></thead><tbody>{monthNotes.map((note) => <tr key={note.id} className="border-b border-[var(--line-soft)] last:border-0"><td className="px-3 py-2 font-medium text-[var(--navy)]">{note.pakbonnummer || "Sin número"}</td><td className="px-3 py-2">{note.uitgiftedatum || note.inkomstdatum || "—"}</td><td className="px-3 py-2">{note.naam_patient || "—"}</td><td className="px-3 py-2 text-right tabular-nums">{euro(note.total)}</td><td className="px-3 py-2"><select aria-label={`Estado de ${note.pakbonnummer || note.id}`} disabled={pending} value={note.monthly_status} onChange={(event) => startTransition(async () => { try { await updateClinicMonthlyStatusAction(clinic.id, [note.id], event.target.value as MonthlyStatus); } catch (err) { setError(err instanceof Error ? err.message : "No se ha podido actualizar el estado."); } })} className="rounded border border-[var(--line)] bg-white px-2 py-1 text-xs">{Object.entries(STATUS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></td></tr>)}</tbody></table></div></section>;
+  })}{error && <p role="alert" className="py-3 text-sm text-red-700">{error}</p>}</div>;
 }
