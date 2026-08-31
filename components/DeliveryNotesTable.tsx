@@ -132,7 +132,7 @@ export default function DeliveryNotesTable({
                       onClick={() => handleGenerate(month.locations.flatMap((location) => location.notes).filter((note) => note.source !== "combined"), month.key, month.label)}
                       className="px-2.5 py-1.5 text-xs"
                     >
-                      {generatingKey === month.key ? "Generando…" : "Factura mensual"}
+                      {generatingKey === month.key ? "Generando…" : "Generar factura"}
                     </Button>
                   )}
                 </div>
@@ -200,7 +200,7 @@ export default function DeliveryNotesTable({
             }}
             className="shrink-0"
           >
-            {generatingKey === "selection" ? "Generando…" : "Generar factura mensual"}
+            {generatingKey === "selection" ? "Generando…" : "Generar factura"}
           </Button>
         </div>
       )}

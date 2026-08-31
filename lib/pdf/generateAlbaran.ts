@@ -1,4 +1,3 @@
-import fontkit from "@pdf-lib/fontkit";
 import { PDFDocument, PDFName, StandardFonts, rgb } from "pdf-lib";
 import { TEMPLATE_B64 } from "./template";
 import type { AlbaranHeader, LineItem } from "@/types/albaran";
@@ -40,12 +39,6 @@ const linePrijs = (l: LineItem) => {
 
 export async function generateAlbaranPdf(header: AlbaranHeader, lines: LineItem[], documentDiscount = ""): Promise<Uint8Array> {
   const doc = await PDFDocument.load(b64ToBytes(TEMPLATE_B64));
-  doc.registerFontkit(fontkit);
-  const bornaMediumBytes = await fetch("/fonts/Borna-Medium.otf").then(async (response) => {
-    if (!response.ok) throw new Error("No se ha podido cargar Borna Medium.");
-    return new Uint8Array(await response.arrayBuffer());
-  });
-  const bornaMedium = await doc.embedFont(bornaMediumBytes, { subset: true });
   const form = doc.getForm();
   const set = (name: string, val: unknown) => {
     try {
@@ -118,9 +111,11 @@ export async function generateAlbaranPdf(header: AlbaranHeader, lines: LineItem[
     if (txt !== "" && txt != null) p.drawText(String(txt), { x, y, size, font, color: rgb(0, 0, 0) });
   };
 
-  const drawBorna = (page: import("pdf-lib").PDFPage, x: number, y: number, text: string, size: number) => {
+  const drawClinicText = (page: import("pdf-lib").PDFPage, x: number, y: number, text: string, size: number) => {
     if (!text) return;
-    page.drawText(text, { x, y, size, font: bornaMedium, color: TEMPLATE_BLUE });
+    // Use a PDF-standard font here. The former embedded Borna subset rendered
+    // as random symbols in some mobile and browser PDF viewers.
+    page.drawText(text, { x, y, size, font, color: TEMPLATE_BLUE });
   };
 
   const drawRow = (page: import("pdf-lib").PDFPage, y0: number, l: LineItem) => {
@@ -147,7 +142,6 @@ export async function generateAlbaranPdf(header: AlbaranHeader, lines: LineItem[
   // La plantilla reserva el rótulo a la izquierda y el valor de x=397 a x=552.
   const CLINIC_ADDRESS_X = 397;
   const CLINIC_ADDRESS_W = 150;
-  // Borna Medium completa para conservar toda la tipografía, incluidos acentos.
   const CLINIC_ADDRESS_SIZE = 10;
   const CLINIC_ADDRESS_LINE_HEIGHT = 10;
   const CLINIC_ADDRESS_MAX_LINES = 3;
@@ -157,12 +151,12 @@ export async function generateAlbaranPdf(header: AlbaranHeader, lines: LineItem[
     let line = "";
 
     const addWord = (word: string) => {
-      if (bornaMedium.widthOfTextAtSize(word, size) <= width) return [word];
+      if (font.widthOfTextAtSize(word, size) <= width) return [word];
       const parts: string[] = [];
       let part = "";
       for (const character of word) {
         const candidate = part + character;
-        if (part && bornaMedium.widthOfTextAtSize(candidate, size) > width) {
+        if (part && font.widthOfTextAtSize(candidate, size) > width) {
           parts.push(part);
           part = character;
         } else {
@@ -178,7 +172,7 @@ export async function generateAlbaranPdf(header: AlbaranHeader, lines: LineItem[
     for (let index = 0; index < words.length; index++) {
       const word = words[index];
       const candidate = line ? `${line} ${word}` : word;
-      if (bornaMedium.widthOfTextAtSize(candidate, size) <= width) {
+      if (font.widthOfTextAtSize(candidate, size) <= width) {
         line = candidate;
       } else {
         if (line) lines.push(line);
@@ -193,14 +187,14 @@ export async function generateAlbaranPdf(header: AlbaranHeader, lines: LineItem[
 
     if (truncated) {
       let lastLine = lines[maxLines - 1];
-      while (lastLine && bornaMedium.widthOfTextAtSize(`${lastLine}…`, size) > width) lastLine = lastLine.slice(0, -1);
+      while (lastLine && font.widthOfTextAtSize(`${lastLine}…`, size) > width) lastLine = lastLine.slice(0, -1);
       lines[maxLines - 1] = `${lastLine}…`;
     }
     return lines;
   };
 
   const drawClinicAddress = (page: import("pdf-lib").PDFPage) => {
-    drawBorna(page, 313, 701.3, "Kliniek / adres", 10);
+    drawClinicText(page, 313, 701.3, "Kliniek / adres", 10);
     const clinicLines = wrapText(header.in_opdracht, CLINIC_ADDRESS_W, CLINIC_ADDRESS_SIZE, 1);
     const addressLines = wrapText(
       header.klant_regel2,
@@ -209,7 +203,7 @@ export async function generateAlbaranPdf(header: AlbaranHeader, lines: LineItem[
       CLINIC_ADDRESS_MAX_LINES - clinicLines.length
     );
     [...clinicLines, ...addressLines].forEach((line, index) => {
-      drawBorna(page, CLINIC_ADDRESS_X, 701.3 - index * CLINIC_ADDRESS_LINE_HEIGHT, line, CLINIC_ADDRESS_SIZE);
+      drawClinicText(page, CLINIC_ADDRESS_X, 701.3 - index * CLINIC_ADDRESS_LINE_HEIGHT, line, CLINIC_ADDRESS_SIZE);
     });
   };
 
