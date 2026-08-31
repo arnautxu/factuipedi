@@ -10,6 +10,7 @@ export type ExtractedLine = {
 };
 
 export type ExtractedDeliveryNote = {
+  external_code: string;
   patient_name: string;
   date: string;
   discount: string;
@@ -19,6 +20,7 @@ export type ExtractedDeliveryNote = {
 const RESPONSE_SCHEMA = {
   type: Type.OBJECT,
   properties: {
+    external_code: { type: Type.STRING, description: "Número o código externo único del albarán/factura, vacío si no aparece" },
     patient_name: { type: Type.STRING, description: "Nombre del paciente/cliente, vacío si no aparece" },
     date: { type: Type.STRING, description: "Fecha del documento tal como aparece, vacía si no aparece" },
     discount: {
@@ -51,6 +53,7 @@ const RESPONSE_SCHEMA = {
 const PROMPT = `Eres un asistente que extrae datos estructurados de albaranes/notas de entrega de un laboratorio dental recibidos de proveedores externos. El documento puede estar en neerlandés, español o inglés, y el diseño varía según el proveedor.
 
 Extrae:
+- El número o código externo único del albarán o factura. No uses códigos de producto; deja el campo vacío si no aparece.
 - El nombre del paciente/cliente si aparece.
 - La fecha del documento si aparece.
 - Todas las líneas de producto/servicio con su código (si tiene), descripción, cantidad y precio unitario.
@@ -86,6 +89,7 @@ export async function extractDeliveryNoteFromPdf(pdfBytes: Uint8Array): Promise<
 
   const parsed = JSON.parse(text) as ExtractedDeliveryNote;
   return {
+    external_code: (parsed.external_code ?? "").trim(),
     patient_name: parsed.patient_name ?? "",
     date: parsed.date ?? "",
     discount: (parsed.discount ?? "").trim(),

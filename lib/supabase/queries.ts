@@ -1,7 +1,7 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { createAdminClient } from "./admin";
-import type { Client, Clinic, DeliveryNote, DeliveryNoteLine, CatalogItem, UploadedDocument } from "@/types/database";
+import type { Client, Clinic, DeliveryNote, DeliveryNoteLine, CatalogItem, ImportedWork, UploadedDocument } from "@/types/database";
 import type { AlbaranHeader, LineItem } from "@/types/albaran";
 import type { EmbeddedCatalogItem } from "@/lib/catalog/embeddedCatalog";
 import { lineTotal, applyDiscountToAmount } from "@/lib/albaran/pricing";
@@ -202,7 +202,8 @@ export async function createDeliveryNoteWithLines(
   header: AlbaranHeader,
   lines: LineItem[],
   source: DeliveryNote["source"] = "created",
-  documentDiscount = ""
+  documentDiscount = "",
+  clinicId: string | null = null
 ): Promise<DeliveryNote> {
   const supabase = createAdminClient();
   const filled = lines.filter((l) => l.code || l.description);
@@ -213,6 +214,7 @@ export async function createDeliveryNoteWithLines(
     .from("delivery_notes")
     .insert({
       client_id: clientId,
+      clinic_id: clinicId,
       pakbonnummer: header.pakbonnummer || null,
       inkomstdatum: header.inkomstdatum || null,
       uitgiftedatum: header.uitgiftedatum || null,
@@ -395,6 +397,83 @@ export async function getUploadedDocument(id: string): Promise<UploadedDocument 
   return data as UploadedDocument | null;
 }
 
+export async function getImportedWorkByExternalCode(externalCode: string): Promise<ImportedWork | null> {
+  const code = externalCode.trim().toUpperCase();
+  if (!code) return null;
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("imported_works")
+    .select("*")
+    .eq("external_code", code)
+    .maybeSingle();
+  if (error) throw error;
+  return data as ImportedWork | null;
+}
+
+export async function getImportedWorksForClient(clientId: string): Promise<ImportedWork[]> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("imported_works")
+    .select("*")
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as ImportedWork[];
+}
+
+export async function getImportedWork(id: string): Promise<ImportedWork | null> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.from("imported_works").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  return data as ImportedWork | null;
+}
+
+export async function createImportedWork(input: {
+  clientId: string;
+  clinicId: string | null;
+  uploadedDocumentId: string;
+  externalCode: string;
+  patientName: string;
+  documentDate: string;
+  productSummary: string;
+  extractedPayload: unknown;
+  alerts: string[];
+  actor: string;
+}): Promise<ImportedWork> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("imported_works")
+    .insert({
+      client_id: input.clientId,
+      clinic_id: input.clinicId,
+      uploaded_document_id: input.uploadedDocumentId,
+      external_code: input.externalCode.trim().toUpperCase() || null,
+      patient_name: input.patientName.trim() || null,
+      document_date: input.documentDate.trim() || null,
+      product_summary: input.productSummary.trim() || null,
+      extracted_payload: input.extractedPayload,
+      alerts: input.alerts,
+      created_by: input.actor,
+      updated_by: input.actor,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as ImportedWork;
+}
+
+export async function updateImportedWork(id: string, patch: Partial<ImportedWork>): Promise<ImportedWork> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("imported_works")
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as ImportedWork;
+}
+
 // Puja el PDF a Storage i crea la fila uploaded_documents (status='pending').
 export async function uploadDeliveryNoteDocument(
   clientId: string,
@@ -428,6 +507,13 @@ export async function downloadDeliveryNoteDocument(storagePath: string): Promise
   const { data, error } = await supabase.storage.from(DELIVERY_NOTE_PDFS_BUCKET).download(storagePath);
   if (error) throw error;
   return new Uint8Array(await data.arrayBuffer());
+}
+
+export async function getDeliveryNoteDocumentUrl(storagePath: string): Promise<string> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.storage.from(DELIVERY_NOTE_PDFS_BUCKET).createSignedUrl(storagePath, 60 * 60);
+  if (error) throw error;
+  return data.signedUrl;
 }
 
 export async function updateUploadedDocument(id: string, patch: Partial<UploadedDocument>): Promise<UploadedDocument> {

@@ -2,9 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import ClientForm from "@/components/ClientForm";
 import DeliveryNotesTable from "@/components/DeliveryNotesTable";
+import ImportedWorksList from "@/components/ImportedWorksList";
 import DeleteClientButton from "@/components/DeleteClientButton";
 import { Card } from "@/components/ui/Card";
-import { getClient, getClinics, getDeliveryNotesForClient } from "@/lib/supabase/queries";
+import { getClient, getClinic, getClinics, getDeliveryNotesForClient, getImportedWorksForClient } from "@/lib/supabase/queries";
 import { updateClientAction, deleteClientAction } from "../actions";
 
 export default async function ClienteDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -12,8 +13,12 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
   const client = await getClient(id);
   if (!client) notFound();
 
-  const notes = await getDeliveryNotesForClient(id);
-  const clinics = await getClinics();
+  const [notes, importedWorks] = await Promise.all([getDeliveryNotesForClient(id), getImportedWorksForClient(id)]);
+  const monthlyClinicId = notes.find((note) => note.clinic_id)?.clinic_id ?? client.clinic_id;
+  const [clinics, monthlyClinic] = await Promise.all([
+    getClinics(),
+    monthlyClinicId ? getClinic(monthlyClinicId) : Promise.resolve(null),
+  ]);
   const boundUpdate = updateClientAction.bind(null, id);
   const boundDelete = deleteClientAction.bind(null, id);
 
@@ -44,8 +49,10 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
             + Subir albarán externo
           </Link>
         </div>
-        <DeliveryNotesTable clientId={id} notes={notes} />
+        <DeliveryNotesTable clientId={id} clinic={monthlyClinic} notes={notes} />
       </Card>
+
+      <ImportedWorksList clientId={id} works={importedWorks} />
     </div>
   );
 }

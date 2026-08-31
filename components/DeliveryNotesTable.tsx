@@ -1,11 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import type { DeliveryNote, DeliveryNoteSource } from "@/types/database";
-import { generateAlbaranPdf, downloadPdf } from "@/lib/pdf/generateAlbaran";
-import { getCombinedLinesAction, saveCombinedInvoiceAction } from "@/app/(app)/clientes/actions";
+import type { Clinic, DeliveryNote, DeliveryNoteSource } from "@/types/database";
+import { downloadMonthlyInvoicePdf, generateMonthlyInvoicePdf } from "@/lib/pdf/generateMonthlyInvoice";
 import { Button } from "@/components/ui/Button";
 
 const eur = (value: number | null) =>
@@ -62,8 +60,7 @@ function groupNotes(notes: DeliveryNote[]): NoteGroup[] {
     }));
 }
 
-export default function DeliveryNotesTable({ clientId, notes }: { clientId: string; notes: DeliveryNote[] }) {
-  const router = useRouter();
+export default function DeliveryNotesTable({ clientId, clinic, notes }: { clientId: string; clinic: Clinic | null; notes: DeliveryNote[] }) {
   const combinable = notes.filter((note) => note.source !== "combined");
   const [selected, setSelected] = useState<Set<string>>(new Set(combinable.map((note) => note.id)));
   const [generatingKey, setGeneratingKey] = useState<string | null>(null);
@@ -79,24 +76,24 @@ export default function DeliveryNotesTable({ clientId, notes }: { clientId: stri
     });
   };
 
-  const handleGenerate = async (noteIds: string[], key: string, filename: string) => {
-    if (noteIds.length === 0) return;
+  const handleGenerate = async (invoiceNotes: DeliveryNote[], key: string, period: string) => {
+    if (invoiceNotes.length === 0) return;
     setGeneratingKey(key);
     setError(null);
     try {
-      const { header, lines } = await getCombinedLinesAction(clientId, noteIds);
-      if (!lines.length) {
-        setError("Los albaranes incluidos no tienen líneas.");
+      if (!clinic) {
+        setError("No se ha encontrado la clínica de estos albaranes.");
         return;
       }
-      const bytes = await generateAlbaranPdf(header, lines);
-      // Se guarda antes de descargar: en Safari móvil, la descarga de un PDF
-      // puede interrumpir una petición de red concurrente.
-      await saveCombinedInvoiceAction(clientId, header, lines);
-      downloadPdf(bytes, filename);
-      router.refresh();
+      const clinicIds = new Set(invoiceNotes.map((note) => note.clinic_id).filter(Boolean));
+      if (clinicIds.size > 1 || (clinicIds.size === 1 && !clinicIds.has(clinic.id))) {
+        setError("Solo se pueden unificar albaranes de la misma clínica.");
+        return;
+      }
+      const bytes = await generateMonthlyInvoicePdf({ clinic, period, notes: invoiceNotes });
+      downloadMonthlyInvoicePdf(bytes, period, clinic.name);
     } catch (err) {
-      setError("Error al generar la factura combinada: " + (err instanceof Error ? err.message : String(err)));
+      setError("Error al generar la factura mensual: " + (err instanceof Error ? err.message : String(err)));
     } finally {
       setGeneratingKey(null);
     }
@@ -122,10 +119,10 @@ export default function DeliveryNotesTable({ clientId, notes }: { clientId: stri
                     <Button
                       variant="secondary"
                       disabled={generatingKey !== null}
-                      onClick={() => handleGenerate(monthNoteIds, month.key, `factura-${month.key}`)}
+                      onClick={() => handleGenerate(month.locations.flatMap((location) => location.notes).filter((note) => note.source !== "combined"), month.key, month.label)}
                       className="px-2.5 py-1.5 text-xs"
                     >
-                      {generatingKey === month.key ? "Generando…" : "Descargar conjunto"}
+                      {generatingKey === month.key ? "Generando…" : "Factura mensual"}
                     </Button>
                   )}
                 </div>
@@ -168,10 +165,19 @@ export default function DeliveryNotesTable({ clientId, notes }: { clientId: stri
           <span aria-live="polite" className="text-xs leading-5 text-[var(--muted)]">{selected.size} {selected.size === 1 ? "albarán seleccionado" : "albaranes seleccionados"}</span>
           <Button
             disabled={generatingKey !== null || selected.size === 0}
-            onClick={() => handleGenerate([...selected], "selection", "combinada")}
+            onClick={() => {
+              const selectedNotes = combinable.filter((note) => selected.has(note.id));
+              const selectedMonths = new Set(selectedNotes.map((note) => parseNoteDate(note)?.toISOString().slice(0, 7) ?? "undated"));
+              if (selectedMonths.size > 1) {
+                setError("Selecciona albaranes de un único mes para generar una factura mensual.");
+                return;
+              }
+              const selectedMonth = groups.find((group) => group.locations.some((location) => location.notes.some((note) => selected.has(note.id))));
+              handleGenerate(selectedNotes, "selection", selectedMonth?.label ?? "Sin fecha");
+            }}
             className="shrink-0"
           >
-            {generatingKey === "selection" ? "Generando…" : "Generar factura"}
+            {generatingKey === "selection" ? "Generando…" : "Generar factura mensual"}
           </Button>
         </div>
       )}

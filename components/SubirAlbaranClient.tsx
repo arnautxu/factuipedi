@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import ExtractedLinesReview from "@/components/ExtractedLinesReview";
 import type { ExtractedDeliveryNote } from "@/lib/ai/extractDeliveryNote";
+import type { ImportedWork } from "@/types/database";
 import { uploadAndExtractAction } from "@/app/(app)/clientes/[id]/subir/actions";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -12,8 +13,8 @@ export default function SubirAlbaranClient({ clientId }: { clientId: string }) {
   const [state, setState] = useState<
     | { status: "idle" }
     | { status: "uploading" }
-    | { status: "error"; message: string }
-    | { status: "ready"; documentId: string; extracted: ExtractedDeliveryNote }
+    | { status: "error"; message: string; pdfUrl?: string }
+    | { status: "ready"; documentId: string; pdfUrl: string; work: ImportedWork; extracted: ExtractedDeliveryNote }
   >({ status: "idle" });
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -28,17 +29,17 @@ export default function SubirAlbaranClient({ clientId }: { clientId: string }) {
       formData.set("file", file);
       const result = await uploadAndExtractAction(clientId, formData);
       if ("error" in result) {
-        setState({ status: "error", message: result.error });
+        setState({ status: "error", message: result.error, pdfUrl: result.pdfUrl });
         return;
       }
-      setState({ status: "ready", documentId: result.documentId, extracted: result.extracted });
+      setState({ status: "ready", documentId: result.documentId, pdfUrl: result.pdfUrl, work: result.work, extracted: result.extracted });
     } catch (err) {
       setState({ status: "error", message: "No se ha podido procesar el PDF: " + (err instanceof Error ? err.message : String(err)) });
     }
   };
 
   if (state.status === "ready") {
-    return <ExtractedLinesReview clientId={clientId} documentId={state.documentId} extracted={state.extracted} />;
+    return <ExtractedLinesReview clientId={clientId} documentId={state.documentId} pdfUrl={state.pdfUrl} work={state.work} extracted={state.extracted} />;
   }
 
   return (
@@ -71,9 +72,10 @@ export default function SubirAlbaranClient({ clientId }: { clientId: string }) {
         </Button>
 
         {state.status === "error" && (
-          <p role="alert" className="animate-fade-slide-in text-sm text-red-600 mt-4 max-w-md mx-auto">
-            {state.message}
-          </p>
+          <div role="alert" className="animate-fade-slide-in mt-4 max-w-md text-sm text-red-600 mx-auto">
+            <p>{state.message}</p>
+            {state.pdfUrl && <a href={state.pdfUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block font-semibold underline">Ver PDF conservado</a>}
+          </div>
         )}
       </Card>
     </div>

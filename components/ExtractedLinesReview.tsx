@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ExtractedDeliveryNote } from "@/lib/ai/extractDeliveryNote";
+import type { ImportedWork } from "@/types/database";
 import type { LineItem } from "@/types/albaran";
 import { saveExtractedNoteAction } from "@/app/(app)/clientes/[id]/subir/actions";
 import { lineTotal, applyDiscountToAmount } from "@/lib/albaran/pricing";
@@ -13,15 +14,20 @@ import { Button } from "@/components/ui/Button";
 export default function ExtractedLinesReview({
   clientId,
   documentId,
+  pdfUrl,
+  work,
   extracted,
 }: {
   clientId: string;
   documentId: string;
+  pdfUrl: string;
+  work: ImportedWork;
   extracted: ExtractedDeliveryNote;
 }) {
   const router = useRouter();
   const [patientName, setPatientName] = useState(extracted.patient_name);
   const [date, setDate] = useState(extracted.date);
+  const [externalCode, setExternalCode] = useState(work.external_code ?? extracted.external_code);
   const [lines, setLines] = useState<LineItem[]>(
     extracted.lines.map((l) => ({
       code: l.code,
@@ -35,8 +41,8 @@ export default function ExtractedLinesReview({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // See LineItemsTable.tsx for why a parallel id array is used for stable keys.
-  const idsRef = useRef<number[]>(lines.map((_, i) => i));
+  // A parallel id array keeps keys stable while editable rows are reordered or removed.
+  const [lineIds, setLineIds] = useState<number[]>(() => lines.map((_, i) => i));
   const nextIdRef = useRef(lines.length);
 
   const setLine = (i: number, patch: Partial<LineItem>) => {
@@ -46,12 +52,12 @@ export default function ExtractedLinesReview({
   };
 
   const addLine = () => {
-    idsRef.current.push(nextIdRef.current++);
+    setLineIds((ids) => [...ids, nextIdRef.current++]);
     setLines((ls) => [...ls, { code: "", description: "", qty: "1", price: "", priceText: "", discount: "" }]);
   };
 
   const removeLine = (i: number) => {
-    idsRef.current.splice(i, 1);
+    setLineIds((ids) => ids.filter((_, index) => index !== i));
     setLines((ls) => ls.filter((_, idx) => idx !== i));
   };
 
@@ -61,7 +67,7 @@ export default function ExtractedLinesReview({
   const handleSave = async () => {
     setSaving(true);
     setError(null);
-    const result = await saveExtractedNoteAction(clientId, documentId, patientName, date, lines, extracted.discount);
+    const result = await saveExtractedNoteAction(clientId, documentId, work.id, externalCode, patientName, date, lines, extracted.discount);
     setSaving(false);
     if ("error" in result) {
       setError(result.error);
@@ -76,6 +82,23 @@ export default function ExtractedLinesReview({
         Revisa y corrige las líneas extraídas por IA antes de guardarlas — la precisión puede variar según el diseño del documento original.
       </div>
 
+      <Card className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 text-sm">
+        <div>
+          <p className="font-semibold text-[var(--navy)]">Trabajo importado</p>
+          <p className="mt-1 text-xs text-[var(--muted)]">Creado por {work.created_by} · Última modificación: {work.updated_by}</p>
+        </div>
+        <a href={pdfUrl} target="_blank" rel="noreferrer" className="rounded-lg border border-[var(--line)] px-3 py-2 text-xs font-semibold text-[var(--navy)] hover:bg-slate-50">
+          Ver PDF original
+        </a>
+      </Card>
+
+      {work.alerts.length > 0 && (
+        <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+          <p className="font-semibold">Alertas de revisión</p>
+          <ul className="mt-1 list-disc pl-4">{work.alerts.map((alert) => <li key={alert}>{alert}</li>)}</ul>
+        </div>
+      )}
+
       {extracted.discount && (
         <div role="status" className="text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-3">
           <b>Descuento global detectado en el documento:</b> {extracted.discount}%. Ya se ha restado del total —
@@ -84,6 +107,7 @@ export default function ExtractedLinesReview({
       )}
 
       <Card className="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-4">
+        <Field id="external-code" label="Código externo" value={externalCode} onChange={setExternalCode} placeholder="Nº albarán o factura del proveedor" />
         <Field id="extracted-patient-name" label="Nombre del paciente" value={patientName} onChange={setPatientName} />
         <Field id="extracted-date" label="Fecha" value={date} onChange={setDate} />
       </Card>
@@ -103,7 +127,7 @@ export default function ExtractedLinesReview({
           <tbody>
             {lines.map((l, i) => (
               <tr
-                key={idsRef.current[i]}
+                key={lineIds[i]}
                 className="animate-fade-slide-in border-b border-[var(--line-soft)] transition-colors duration-150 last:border-0 hover:bg-slate-50/70"
               >
                 <td className="px-3 py-1.5">

@@ -69,7 +69,7 @@ export type DeliveryNoteLine = {
   price_text: string | null;
 };
 
-export type UploadedDocumentStatus = "pending" | "extracted" | "reviewed" | "failed";
+export type UploadedDocumentStatus = "pending" | "extracted" | "reviewed" | "failed" | "duplicate";
 
 export type UploadedDocument = {
   id: string;
@@ -82,6 +82,27 @@ export type UploadedDocument = {
   uploaded_at: string;
 };
 
+export type ImportedWorkStatus = "pending_review" | "reviewed" | "converted";
+
+export type ImportedWork = {
+  id: string;
+  client_id: string;
+  clinic_id: string | null;
+  uploaded_document_id: string;
+  external_code: string | null;
+  patient_name: string | null;
+  document_date: string | null;
+  product_summary: string | null;
+  extracted_payload: unknown;
+  alerts: string[];
+  status: ImportedWorkStatus;
+  final_delivery_note_id: string | null;
+  created_by: string;
+  created_at: string;
+  updated_by: string;
+  updated_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -91,6 +112,7 @@ export type Database = {
       delivery_notes: { Row: DeliveryNote; Insert: Partial<DeliveryNote>; Update: Partial<DeliveryNote> };
       delivery_note_lines: { Row: DeliveryNoteLine; Insert: Partial<DeliveryNoteLine>; Update: Partial<DeliveryNoteLine> };
       uploaded_documents: { Row: UploadedDocument; Insert: Partial<UploadedDocument>; Update: Partial<UploadedDocument> };
+      imported_works: { Row: ImportedWork; Insert: Partial<ImportedWork>; Update: Partial<ImportedWork> };
     };
   };
 };
