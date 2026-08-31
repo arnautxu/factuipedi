@@ -6,7 +6,6 @@ import DeleteClientButton from "@/components/DeleteClientButton";
 import { Card } from "@/components/ui/Card";
 import {
   getClient,
-  getClinic,
   getClinics,
   getDeliveryNoteDocumentUrl,
   getDeliveryNotesForClient,
@@ -39,11 +38,7 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
   const originalDocumentUrls = Object.fromEntries(
     originalDocumentUrlEntries.filter((entry): entry is readonly [string, string] => entry !== null)
   );
-  const monthlyClinicId = notes.find((note) => note.clinic_id)?.clinic_id ?? client.clinic_id;
-  const [clinics, monthlyClinic] = await Promise.all([
-    getClinics(),
-    monthlyClinicId ? getClinic(monthlyClinicId) : Promise.resolve(null),
-  ]);
+  const clinics = await getClinics();
   const boundUpdate = updateClientAction.bind(null, id);
   const boundDelete = deleteClientAction.bind(null, id);
 
@@ -74,7 +69,7 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
             + Subir albarán externo
           </Link>
         </div>
-        <DeliveryNotesTable clientId={id} clinic={monthlyClinic} notes={notes} originalDocumentUrls={originalDocumentUrls} />
+        <DeliveryNotesTable clientId={id} notes={notes} originalDocumentUrls={originalDocumentUrls} />
       </Card>
     </div>
   );

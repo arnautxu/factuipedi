@@ -5,7 +5,6 @@ import { cookies } from "next/headers";
 import {
   createImportedWork,
   uploadDeliveryNoteDocument,
-  downloadDeliveryNoteDocument,
   getClient,
   getDeliveryNoteDocumentUrl,
   getImportedWorkByExternalCode,
@@ -46,34 +45,47 @@ export async function uploadAndExtractAction(
     return { error: "El archivo debe ser un PDF." };
   }
 
-  const [doc, client, actor] = await Promise.all([uploadDeliveryNoteDocument(clientId, file), getClient(clientId), currentActor()]);
+  const [doc, client, actor, fileBuffer] = await Promise.all([
+    uploadDeliveryNoteDocument(clientId, file),
+    getClient(clientId),
+    currentActor(),
+    file.arrayBuffer(),
+  ]);
 
   try {
-    const bytes = await downloadDeliveryNoteDocument(doc.storage_path);
+    const bytes = new Uint8Array(fileBuffer);
     const extracted = await extractDeliveryNoteFromPdf(bytes);
     const alerts = extractionAlerts(extracted);
-    const existing = await getImportedWorkByExternalCode(extracted.external_code);
+    const existing = extracted.external_code
+      ? await getImportedWorkByExternalCode(extracted.external_code)
+      : null;
     if (existing) {
-      await updateUploadedDocument(doc.id, { status: "duplicate", extraction_raw: extracted });
+      const [, pdfUrl] = await Promise.all([
+        updateUploadedDocument(doc.id, { status: "duplicate", extraction_raw: extracted }),
+        getDeliveryNoteDocumentUrl(doc.storage_path),
+      ]);
       return {
         error: `El código externo ${extracted.external_code} ya existe en otro trabajo importado. El PDF se ha conservado, pero no se ha creado un duplicado.`,
-        pdfUrl: await getDeliveryNoteDocumentUrl(doc.storage_path),
+        pdfUrl,
       };
     }
-    const work = await createImportedWork({
-      clientId,
-      clinicId: client?.clinic_id ?? null,
-      uploadedDocumentId: doc.id,
-      externalCode: extracted.external_code,
-      patientName: extracted.patient_name,
-      documentDate: extracted.date,
-      productSummary: extracted.lines.map((line) => line.description).filter(Boolean).join(" · "),
-      extractedPayload: extracted,
-      alerts,
-      actor,
-    });
-    await updateUploadedDocument(doc.id, { status: "extracted", extraction_raw: extracted });
-    return { documentId: doc.id, pdfUrl: await getDeliveryNoteDocumentUrl(doc.storage_path), work, extracted };
+    const [work, , pdfUrl] = await Promise.all([
+      createImportedWork({
+        clientId,
+        clinicId: client?.clinic_id ?? null,
+        uploadedDocumentId: doc.id,
+        externalCode: extracted.external_code,
+        patientName: extracted.patient_name,
+        documentDate: extracted.date,
+        productSummary: extracted.lines.map((line) => line.description).filter(Boolean).join(" · "),
+        extractedPayload: extracted,
+        alerts,
+        actor,
+      }),
+      updateUploadedDocument(doc.id, { status: "extracted", extraction_raw: extracted }),
+      getDeliveryNoteDocumentUrl(doc.storage_path),
+    ]);
+    return { documentId: doc.id, pdfUrl, work, extracted };
   } catch (err) {
     if (typeof err === "object" && err && "code" in err && err.code === "23505") {
       await updateUploadedDocument(doc.id, { status: "duplicate" });

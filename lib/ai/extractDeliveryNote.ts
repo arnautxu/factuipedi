@@ -63,7 +63,7 @@ Extrae:
 
 Si un campo no aparece en el documento, déjalo como cadena vacía. No inventes datos que no estén. Devuelve solo las líneas que representan productos o servicios facturables, no totales ni subtotales.`;
 
-const MAX_EXTRACTION_ATTEMPTS = 3;
+const MAX_EXTRACTION_ATTEMPTS = 2;
 
 const wait = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
@@ -83,7 +83,7 @@ export async function extractDeliveryNoteFromPdf(pdfBytes: Uint8Array): Promise<
   for (let attempt = 1; attempt <= MAX_EXTRACTION_ATTEMPTS; attempt += 1) {
     try {
       response = await ai.models.generateContent({
-        model: "gemini-flash-latest",
+        model: "gemini-2.5-flash-lite",
         contents: [
           {
             role: "user",
@@ -93,6 +93,7 @@ export async function extractDeliveryNoteFromPdf(pdfBytes: Uint8Array): Promise<
         config: {
           responseMimeType: "application/json",
           responseSchema: RESPONSE_SCHEMA,
+          thinkingConfig: { thinkingBudget: 0 },
         },
       });
       break;

@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { Clinic, DeliveryNote, DeliveryNoteSource } from "@/types/database";
-import { downloadMonthlyInvoicePdf, generateMonthlyInvoicePdf } from "@/lib/pdf/generateMonthlyInvoice";
+import { useRouter } from "next/navigation";
+import type { DeliveryNote, DeliveryNoteSource } from "@/types/database";
+import { downloadPdf, generateAlbaranPdf } from "@/lib/pdf/generateAlbaran";
+import { getCombinedLinesAction, saveCombinedInvoiceAction } from "@/app/(app)/clientes/actions";
 import { Button } from "@/components/ui/Button";
 
 const eur = (value: number | null) =>
@@ -62,15 +64,14 @@ function groupNotes(notes: DeliveryNote[]): NoteGroup[] {
 
 export default function DeliveryNotesTable({
   clientId,
-  clinic,
   notes,
   originalDocumentUrls = {},
 }: {
   clientId: string;
-  clinic: Clinic | null;
   notes: DeliveryNote[];
   originalDocumentUrls?: Record<string, string>;
 }) {
+  const router = useRouter();
   const combinable = notes.filter((note) => note.source !== "combined");
   const [selected, setSelected] = useState<Set<string>>(new Set(combinable.map((note) => note.id)));
   const [generatingKey, setGeneratingKey] = useState<string | null>(null);
@@ -86,24 +87,23 @@ export default function DeliveryNotesTable({
     });
   };
 
-  const handleGenerate = async (invoiceNotes: DeliveryNote[], key: string, period: string) => {
+  const handleGenerate = async (invoiceNotes: DeliveryNote[], key: string) => {
     if (invoiceNotes.length === 0) return;
     setGeneratingKey(key);
     setError(null);
     try {
-      if (!clinic) {
-        setError("No se ha encontrado la clínica de estos albaranes.");
-        return;
-      }
-      const clinicIds = new Set(invoiceNotes.map((note) => note.clinic_id).filter(Boolean));
-      if (clinicIds.size > 1 || (clinicIds.size === 1 && !clinicIds.has(clinic.id))) {
-        setError("Solo se pueden unificar albaranes de la misma clínica.");
-        return;
-      }
-      const bytes = await generateMonthlyInvoicePdf({ clinic, period, notes: invoiceNotes });
-      downloadMonthlyInvoicePdf(bytes, period, clinic.name);
+      const { header, lines, clinicId } = await getCombinedLinesAction(
+        clientId,
+        invoiceNotes.map((note) => note.id),
+      );
+      if (lines.length === 0) throw new Error("Los albaranes seleccionados no tienen líneas.");
+
+      const bytes = await generateAlbaranPdf(header, lines);
+      await saveCombinedInvoiceAction(clientId, clinicId, header, lines);
+      downloadPdf(bytes, "factura");
+      router.refresh();
     } catch (err) {
-      setError("Error al generar la factura mensual: " + (err instanceof Error ? err.message : String(err)));
+      setError("Error al generar la factura del paciente: " + (err instanceof Error ? err.message : String(err)));
     } finally {
       setGeneratingKey(null);
     }
@@ -129,7 +129,7 @@ export default function DeliveryNotesTable({
                     <Button
                       variant="secondary"
                       disabled={generatingKey !== null}
-                      onClick={() => handleGenerate(month.locations.flatMap((location) => location.notes).filter((note) => note.source !== "combined"), month.key, month.label)}
+                      onClick={() => handleGenerate(month.locations.flatMap((location) => location.notes).filter((note) => note.source !== "combined"), month.key)}
                       className="px-2.5 py-1.5 text-xs"
                     >
                       {generatingKey === month.key ? "Generando…" : "Generar factura"}
@@ -195,8 +195,7 @@ export default function DeliveryNotesTable({
                 setError("Selecciona albaranes de un único mes para generar una factura mensual.");
                 return;
               }
-              const selectedMonth = groups.find((group) => group.locations.some((location) => location.notes.some((note) => selected.has(note.id))));
-              handleGenerate(selectedNotes, "selection", selectedMonth?.label ?? "Sin fecha");
+              handleGenerate(selectedNotes, "selection");
             }}
             className="shrink-0"
           >
