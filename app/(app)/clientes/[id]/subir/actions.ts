@@ -33,6 +33,15 @@ function extractionAlerts(extracted: ExtractedDeliveryNote) {
   return alerts;
 }
 
+function publicExtractionError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  if (message.includes("temporalmente saturado")) return message;
+  if (message.includes("GEMINI_API_KEY")) {
+    return "El servicio de extracción no está configurado. Contacta con el administrador.";
+  }
+  return "No se han podido leer los datos automáticamente. El PDF se ha conservado para volver a intentarlo.";
+}
+
 export async function uploadAndExtractAction(
   clientId: string,
   formData: FormData
@@ -96,7 +105,7 @@ export async function uploadAndExtractAction(
     }
     await updateUploadedDocument(doc.id, { status: "failed" });
     return {
-      error: "Error al extraer datos del PDF: " + (err instanceof Error ? err.message : String(err)),
+      error: publicExtractionError(err),
       pdfUrl: await getDeliveryNoteDocumentUrl(doc.storage_path),
     };
   }

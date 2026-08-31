@@ -1,5 +1,5 @@
 import "server-only";
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel, Type } from "@google/genai";
 
 export type ExtractedLine = {
   code: string;
@@ -83,7 +83,7 @@ export async function extractDeliveryNoteFromPdf(pdfBytes: Uint8Array): Promise<
   for (let attempt = 1; attempt <= MAX_EXTRACTION_ATTEMPTS; attempt += 1) {
     try {
       response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-lite",
+        model: "gemini-3.5-flash-lite",
         contents: [
           {
             role: "user",
@@ -93,7 +93,7 @@ export async function extractDeliveryNoteFromPdf(pdfBytes: Uint8Array): Promise<
         config: {
           responseMimeType: "application/json",
           responseSchema: RESPONSE_SCHEMA,
-          thinkingConfig: { thinkingBudget: 0 },
+          thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
         },
       });
       break;
