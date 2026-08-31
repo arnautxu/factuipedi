@@ -63,6 +63,15 @@ Extrae:
 
 Si un campo no aparece en el documento, déjalo como cadena vacía. No inventes datos que no estén. Devuelve solo las líneas que representan productos o servicios facturables, no totales ni subtotales.`;
 
+const MAX_EXTRACTION_ATTEMPTS = 3;
+
+const wait = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+function isTemporaryModelError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /\b(429|500|502|503|504)\b|UNAVAILABLE|high demand|temporar/i.test(message);
+}
+
 export async function extractDeliveryNoteFromPdf(pdfBytes: Uint8Array): Promise<ExtractedDeliveryNote> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("Falta GEMINI_API_KEY");
@@ -70,21 +79,35 @@ export async function extractDeliveryNoteFromPdf(pdfBytes: Uint8Array): Promise<
   const ai = new GoogleGenAI({ apiKey });
   const base64 = Buffer.from(pdfBytes).toString("base64");
 
-  const response = await ai.models.generateContent({
-    model: "gemini-flash-latest",
-    contents: [
-      {
-        role: "user",
-        parts: [{ inlineData: { mimeType: "application/pdf", data: base64 } }, { text: PROMPT }],
-      },
-    ],
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: RESPONSE_SCHEMA,
-    },
-  });
+  let response;
+  for (let attempt = 1; attempt <= MAX_EXTRACTION_ATTEMPTS; attempt += 1) {
+    try {
+      response = await ai.models.generateContent({
+        model: "gemini-flash-latest",
+        contents: [
+          {
+            role: "user",
+            parts: [{ inlineData: { mimeType: "application/pdf", data: base64 } }, { text: PROMPT }],
+          },
+        ],
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: RESPONSE_SCHEMA,
+        },
+      });
+      break;
+    } catch (error) {
+      if (!isTemporaryModelError(error) || attempt === MAX_EXTRACTION_ATTEMPTS) {
+        if (isTemporaryModelError(error)) {
+          throw new Error("El servicio de extracción está temporalmente saturado. El PDF se ha guardado; inténtalo de nuevo en unos minutos.");
+        }
+        throw error;
+      }
+      await wait(attempt * 1_000);
+    }
+  }
 
-  const text = response.text;
+  const text = response?.text;
   if (!text) throw new Error("Gemini no ha devuelto ninguna respuesta");
 
   const parsed = JSON.parse(text) as ExtractedDeliveryNote;

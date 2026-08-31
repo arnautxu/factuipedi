@@ -83,7 +83,10 @@ export async function uploadAndExtractAction(
       };
     }
     await updateUploadedDocument(doc.id, { status: "failed" });
-    return { error: "Error al extraer datos del PDF: " + (err instanceof Error ? err.message : String(err)) };
+    return {
+      error: "Error al extraer datos del PDF: " + (err instanceof Error ? err.message : String(err)),
+      pdfUrl: await getDeliveryNoteDocumentUrl(doc.storage_path),
+    };
   }
 }
 
