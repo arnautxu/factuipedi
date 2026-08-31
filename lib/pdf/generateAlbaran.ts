@@ -2,7 +2,7 @@ import fontkit from "@pdf-lib/fontkit";
 import { PDFDocument, PDFName, StandardFonts, rgb } from "pdf-lib";
 import { TEMPLATE_B64 } from "./template";
 import type { AlbaranHeader, LineItem } from "@/types/albaran";
-import { lineTotal } from "@/lib/albaran/pricing";
+import { applyDiscountToAmount, lineTotal } from "@/lib/albaran/pricing";
 
 // Motor de generació del PDF, portat gairebé literalment de l'index.html original.
 // La plantilla (TEMPLATE_B64) i les coordenades (ROW_Y/COL/H) estan lligades exactament
@@ -38,7 +38,7 @@ const linePrijs = (l: LineItem) => {
   return isFinite(pv) && l.price !== "" ? fmtNum(pv) : l.priceText || "";
 };
 
-export async function generateAlbaranPdf(header: AlbaranHeader, lines: LineItem[]): Promise<Uint8Array> {
+export async function generateAlbaranPdf(header: AlbaranHeader, lines: LineItem[], documentDiscount = ""): Promise<Uint8Array> {
   const doc = await PDFDocument.load(b64ToBytes(TEMPLATE_B64));
   doc.registerFontkit(fontkit);
   const bornaMediumBytes = await fetch("/fonts/Borna-Medium.otf").then(async (response) => {
@@ -227,7 +227,7 @@ export async function generateAlbaranPdf(header: AlbaranHeader, lines: LineItem[
     drawClinicAddress(page);
   };
 
-  const tot = filled.reduce((s, l) => s + lineTotal(l), 0);
+  const tot = applyDiscountToAmount(filled.reduce((s, l) => s + lineTotal(l), 0), documentDiscount);
   const drawFooterVals = (page: import("pdf-lib").PDFPage) => {
     draw(page, 463, 388.9, "€ " + fmtNum(tot), 10);
     draw(page, 78, 353, header.kleur, 10);

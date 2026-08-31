@@ -225,6 +225,7 @@ export async function createDeliveryNoteWithLines(
       kleur: header.kleur || null,
       in_opdracht: header.in_opdracht || null,
       source,
+      document_discount: documentDiscount.trim() || null,
       total,
     })
     .select()
@@ -241,6 +242,7 @@ export async function createDeliveryNoteWithLines(
       qty: l.qty ? parseFloat(l.qty) : null,
       price: l.price ? parseFloat(l.price) : null,
       price_text: l.priceText || null,
+      discount: l.discount.trim() || null,
     }));
     const { error: linesError } = await supabase.from("delivery_note_lines").insert(rows);
     if (linesError) throw linesError;
@@ -303,11 +305,12 @@ export async function getDeliveryNote(id: string): Promise<DeliveryNote | null> 
 export async function updateDeliveryNoteWithLines(
   noteId: string,
   header: AlbaranHeader,
-  lines: LineItem[]
+  lines: LineItem[],
+  documentDiscount = ""
 ): Promise<DeliveryNote> {
   const supabase = createAdminClient();
   const filled = lines.filter((l) => l.code || l.description);
-  const total = filled.reduce((s, l) => s + lineTotal(l), 0);
+  const total = applyDiscountToAmount(filled.reduce((s, l) => s + lineTotal(l), 0), documentDiscount);
 
   const { data: note, error: noteError } = await supabase
     .from("delivery_notes")
@@ -321,6 +324,7 @@ export async function updateDeliveryNoteWithLines(
       klant_regel2: header.klant_regel2 || null,
       kleur: header.kleur || null,
       in_opdracht: header.in_opdracht || null,
+      document_discount: documentDiscount.trim() || null,
       total,
     })
     .eq("id", noteId)
@@ -341,6 +345,7 @@ export async function updateDeliveryNoteWithLines(
       qty: l.qty ? parseFloat(l.qty) : null,
       price: l.price ? parseFloat(l.price) : null,
       price_text: l.priceText || null,
+      discount: l.discount.trim() || null,
     }));
     const { error: linesError } = await supabase.from("delivery_note_lines").insert(rows);
     if (linesError) throw linesError;

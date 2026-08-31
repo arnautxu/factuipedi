@@ -8,6 +8,7 @@ import LineItemsTable from "@/components/LineItemsTable";
 import { Field } from "@/components/ui/Field";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { applyDiscountToAmount, lineTotal } from "@/lib/albaran/pricing";
 import type { CatalogEntry } from "@/types/catalog";
 import { newLine, type AlbaranHeader, type LineItem } from "@/types/albaran";
 import { generateAlbaranPdf, downloadPdf } from "@/lib/pdf/generateAlbaran";
@@ -20,6 +21,7 @@ export default function EditAlbaranClient({
   catalog,
   initialHeader,
   initialLines,
+  initialDocumentDiscount,
 }: {
   noteId: string;
   clientId: string;
@@ -27,21 +29,27 @@ export default function EditAlbaranClient({
   catalog: CatalogEntry[];
   initialHeader: AlbaranHeader;
   initialLines: LineItem[];
+  initialDocumentDiscount: string;
 }) {
   const router = useRouter();
   const [header, setHeader] = useState(initialHeader);
   const [lines, setLines] = useState<LineItem[]>(initialLines.length ? initialLines : [newLine(), newLine(), newLine()]);
+  const [documentDiscount, setDocumentDiscount] = useState(initialDocumentDiscount);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
 
   const reviewItems = catalog.filter((p) => p.priceText);
+  const totalWithDocumentDiscount = applyDiscountToAmount(
+    lines.reduce((sum, line) => sum + lineTotal(line), 0),
+    documentDiscount
+  );
 
   const handleSave = async () => {
     setSaving(true);
     setMessage(null);
     try {
-      await updateAlbaranAction(noteId, clientId, header, lines);
+      await updateAlbaranAction(noteId, clientId, header, lines, documentDiscount);
       router.push(`/clientes/${clientId}`);
     } catch (err) {
       setMessage({ type: "error", text: "Error al guardar los cambios: " + (err instanceof Error ? err.message : String(err)) });
@@ -54,11 +62,11 @@ export default function EditAlbaranClient({
     setGenerating(true);
     setMessage(null);
     try {
-      const bytes = await generateAlbaranPdf(header, lines);
+      const bytes = await generateAlbaranPdf(header, lines, documentDiscount);
       // Es desa abans de descarregar: a Safari mòbil, la descàrrega d'un PDF
       // pot interrompre una petició de xarxa concurrent en curs.
       try {
-        await updateAlbaranAction(noteId, clientId, header, lines);
+        await updateAlbaranAction(noteId, clientId, header, lines, documentDiscount);
       } catch (saveErr) {
         setMessage({
           type: "error",
@@ -136,6 +144,19 @@ export default function EditAlbaranClient({
       </Card>
 
       <LineItemsTable lines={lines} onChange={setLines} catalog={catalog} />
+
+      <Card className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+        <Field
+          id="document-discount"
+          label="Descuento global"
+          value={documentDiscount}
+          onChange={setDocumentDiscount}
+          placeholder="%"
+        />
+        <p className="text-right text-sm text-[var(--muted)]">
+          Total con descuento: {totalWithDocumentDiscount.toLocaleString("nl-NL", { style: "currency", currency: "EUR" })}
+        </p>
+      </Card>
     </div>
   );
 }

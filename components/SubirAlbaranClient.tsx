@@ -8,6 +8,7 @@ import type { ImportedWork } from "@/types/database";
 import { uploadAndExtractAction } from "@/app/(app)/clientes/[id]/subir/actions";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { Spinner } from "@/components/ui/spinner-1";
 
 export default function SubirAlbaranClient({ clientId }: { clientId: string }) {
   const [state, setState] = useState<
@@ -67,7 +68,8 @@ export default function SubirAlbaranClient({ clientId }: { clientId: string }) {
             e.target.value = "";
           }}
         />
-        <Button disabled={state.status === "uploading"} onClick={() => fileRef.current?.click()}>
+        <Button className="inline-flex items-center gap-2" disabled={state.status === "uploading"} onClick={() => fileRef.current?.click()}>
+          {state.status === "uploading" && <Spinner size={16} invert aria-hidden="true" />}
           {state.status === "uploading" ? "Subiendo y extrayendo…" : "Seleccionar PDF"}
         </Button>
 

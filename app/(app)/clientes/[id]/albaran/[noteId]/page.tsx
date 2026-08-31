@@ -32,7 +32,7 @@ export default async function EditAlbaranPage({ params }: { params: Promise<{ id
     qty: l.qty != null ? String(l.qty) : "",
     price: l.price != null ? String(l.price) : "",
     priceText: l.price_text ?? "",
-    discount: "",
+    discount: l.discount ?? "",
   }));
 
   return (
@@ -43,6 +43,7 @@ export default async function EditAlbaranPage({ params }: { params: Promise<{ id
       catalog={catalog}
       initialHeader={header}
       initialLines={lineItems}
+      initialDocumentDiscount={note.document_discount ?? ""}
     />
   );
 }

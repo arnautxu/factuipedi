@@ -13,6 +13,8 @@
   --line-soft: #eef2f8;
   --tint: #ecf9fa;
   --focus: var(--teal-deep);
+  --background: var(--card);
+  --foreground: var(--ink);
 }
 
 @theme inline {

@@ -17,9 +17,10 @@ export async function updateAlbaranAction(
   noteId: string,
   clientId: string,
   header: AlbaranHeader,
-  lines: LineItem[]
+  lines: LineItem[],
+  documentDiscount = ""
 ) {
-  const note = await updateDeliveryNoteWithLines(noteId, header, lines);
+  const note = await updateDeliveryNoteWithLines(noteId, header, lines, documentDiscount);
   revalidatePath(`/clientes/${clientId}`);
   return note.id;
 }

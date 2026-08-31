@@ -29,6 +29,20 @@ function itemToDraft(item: CatalogItem): Draft {
 
 const EMPTY_DRAFT: Draft = { cat: "Varios", code: "", description: "", price: "", priceText: "" };
 
+const INVALID_SHEET_NAME = /[:\\\\/?*\[\]]/g;
+
+function sheetName(category: string, used: Set<string>) {
+  const base = (category.replace(INVALID_SHEET_NAME, " ").replace(/\s+/g, " ").trim() || "Varios").slice(0, 31);
+  let name = base;
+  let duplicate = 2;
+  while (used.has(name)) {
+    const suffix = ` (${duplicate++})`;
+    name = `${base.slice(0, 31 - suffix.length)}${suffix}`;
+  }
+  used.add(name);
+  return name;
+}
+
 function draftToInput(d: Draft) {
   return {
     cat: d.cat.trim() || "Varios",
@@ -130,10 +144,11 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
         if (!byCat.has(it.cat)) byCat.set(it.cat, []);
         byCat.get(it.cat)!.push(it);
       }
+      const usedSheetNames = new Set<string>();
       for (const [cat, its] of byCat) {
         const rows = [["COD", "DESCRIPCION", "PRECIO"], ...its.map((it) => [it.code, it.description, it.price_text || it.price || ""])];
         const ws = XLSX.utils.aoa_to_sheet(rows);
-        XLSX.utils.book_append_sheet(wb, ws, cat.slice(0, 31) || "Varios");
+        XLSX.utils.book_append_sheet(wb, ws, sheetName(cat, usedSheetNames));
       }
 
       // XLSX.writeFile does not consistently trigger a download in current

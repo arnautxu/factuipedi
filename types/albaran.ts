@@ -4,8 +4,7 @@ export type LineItem = {
   qty: string;
   price: string;
   priceText: string;
-  // Descompte en percentatge (p. ex. "10"): es resta del Bedrag de la línia,
-  // però no es desa a la base de dades (és efímer, només per a aquesta sessió).
+  // Descompte en percentatge (p. ex. "10"): es resta del Bedrag de la línia.
   discount: string;
 };
 

@@ -53,6 +53,7 @@ export type DeliveryNote = {
   in_opdracht: string | null;
   source: DeliveryNoteSource;
   monthly_status: MonthlyStatus;
+  document_discount: string | null;
   total: number | null;
   pdf_storage_path: string | null;
   created_at: string;
@@ -67,6 +68,7 @@ export type DeliveryNoteLine = {
   qty: number | null;
   price: number | null;
   price_text: string | null;
+  discount: string | null;
 };
 
 export type UploadedDocumentStatus = "pending" | "extracted" | "reviewed" | "failed" | "duplicate";
