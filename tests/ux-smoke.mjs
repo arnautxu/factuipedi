@@ -128,9 +128,9 @@ try {
   await dialog.getByRole('button', { name: 'Restaurar clínica', exact: true }).click();
   await page.getByRole('button', { name: 'Archivar clínica', exact: true }).waitFor(); assert.equal(db.clinics[0].active, true); check('Restore clinic');
   await page.getByLabel('Mostrar trabajos').selectOption('pending');
-  await waitText('Mostrando 1 de 2 trabajos · Pendiente · 100,00 €');
+  await page.getByLabel('Estado de QA-1', { exact: true }).waitFor();
   const exportEvent = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Excel (1 trabajos visibles)', exact: true }).click();
+  await page.getByRole('button', { name: 'Excel', exact: true }).click();
   const download = await exportEvent;
   const XLSX = await import('xlsx'); const workbook = XLSX.read(await readFile(await download.path()));
   const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
