@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import AlbaranForm from "@/components/AlbaranForm";
 import LineItemsTable from "@/components/LineItemsTable";
@@ -12,7 +12,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import type { CatalogEntry } from "@/types/catalog";
 import type { Client, Clinic } from "@/types/database";
 import { emptyHeader, newLine, type AlbaranHeader, type LineItem } from "@/types/albaran";
-import { generateAlbaranPdf, downloadPdf } from "@/lib/pdf/generateAlbaran";
+
 import { saveAlbaranAction } from "@/app/(app)/albaran/actions";
 
 const DRAFT_KEY = "albaran-nuevo-draft";
@@ -31,6 +31,7 @@ export default function AlbaranNuevoClient({ catalog, clients, clinics }: { cata
   const [confirmingNew, setConfirmingNew] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
+  const operationLock = useRef(false);
   const reviewItems = catalog.filter((p) => p.priceText);
 
   // Restaura l'esborrany desat (si n'hi ha) després del muntatge, per no
@@ -42,6 +43,9 @@ export default function AlbaranNuevoClient({ catalog, clients, clinics }: { cata
   // sol render — així l'efecte de desat de més avall mai s'executa amb els
   // valors per defecte encara no substituïts (el que sobreescrivia l'esborrany).
   useEffect(() => {
+    // Intentional one-time synchronization with the browser draft after SSR.
+    restoreDraft();
+    function restoreDraft() {
     try {
       const raw = localStorage.getItem(DRAFT_KEY);
       if (raw) {
@@ -55,16 +59,17 @@ export default function AlbaranNuevoClient({ catalog, clients, clinics }: { cata
       // Esborrany corrupte o localStorage no disponible — s'ignora i es comença de zero.
     }
     setHydrated(true);
+    }
   }, []);
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || saved) return;
     try {
       localStorage.setItem(DRAFT_KEY, JSON.stringify({ header, lines, clientId, clinicId } satisfies Draft));
     } catch {
       // localStorage ple o no disponible — l'esborrany simplement no es desa.
     }
-  }, [hydrated, header, lines, clientId, clinicId]);
+  }, [hydrated, header, lines, clientId, clinicId, saved]);
 
   const clearDraft = () => {
     try {
@@ -86,6 +91,7 @@ export default function AlbaranNuevoClient({ catalog, clients, clinics }: { cata
   };
 
   const handleSave = async () => {
+    if (operationLock.current) return;
     if (saved) {
       setMessage({ type: "success", text: "Este albarán ya está guardado." });
       return;
@@ -98,6 +104,7 @@ export default function AlbaranNuevoClient({ catalog, clients, clinics }: { cata
       setMessage({ type: "error", text: "Escribe o selecciona un paciente antes de guardar." });
       return;
     }
+    operationLock.current = true;
     setSaving(true);
     setMessage(null);
     try {
@@ -108,11 +115,12 @@ export default function AlbaranNuevoClient({ catalog, clients, clinics }: { cata
     } catch (err) {
       setMessage({ type: "error", text: "Error al guardar el albarán: " + (err instanceof Error ? err.message : String(err)) });
     } finally {
-      setSaving(false);
+      operationLock.current = false; setSaving(false);
     }
   };
 
   const handleGeneratePdf = async () => {
+    if (operationLock.current) return;
     if (!clinicId) {
       setMessage({ type: "error", text: "Selecciona una clínica antes de descargar." });
       return;
@@ -121,9 +129,11 @@ export default function AlbaranNuevoClient({ catalog, clients, clinics }: { cata
       setMessage({ type: "error", text: "Escribe o selecciona un paciente antes de descargar." });
       return;
     }
+    operationLock.current = true;
     setGenerating(true);
     setMessage(null);
     try {
+      const { generateAlbaranPdf, downloadPdf } = await import("@/lib/pdf/generateAlbaran");
       const bytes = await generateAlbaranPdf(header, lines);
       // Es desa ABANS de descarregar: a Safari mòbil, l'acció de descàrrega
       // d'un blob PDF pot interrompre una petició de xarxa concurrent (el
@@ -144,10 +154,11 @@ export default function AlbaranNuevoClient({ catalog, clients, clinics }: { cata
         return;
       }
       downloadPdf(bytes, header.pakbonnummer);
+      setMessage({ type: "success", text: "Albarán guardado. Descarga del PDF iniciada." });
     } catch (err) {
       setMessage({ type: "error", text: "Error al generar el PDF: " + (err instanceof Error ? err.message : String(err)) });
     } finally {
-      setGenerating(false);
+      operationLock.current = false; setGenerating(false);
     }
   };
 
@@ -158,18 +169,18 @@ export default function AlbaranNuevoClient({ catalog, clients, clinics }: { cata
           <h1 className="text-lg font-bold text-[var(--navy)]">Nuevo albarán</h1>
           <p className="text-xs text-[var(--muted)]">{catalog.length} productos en el catálogo</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="secondary" onClick={() => setConfirmingNew(true)}>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" disabled={saving || generating} onClick={() => setConfirmingNew(true)}>
             Nuevo
           </Button>
-          <Button variant="secondary" onClick={() => setLines((ls) => [...ls, newLine()])}>
+          <Button variant="secondary" disabled={saving || generating || Boolean(saved)} onClick={() => setLines((ls) => [...ls, newLine()])}>
             + Línea
           </Button>
-          <Button variant="secondary" disabled={saving} onClick={handleSave}>
+          <Button variant="secondary" disabled={saving || generating} onClick={handleSave}>
             {saving ? "Guardando…" : "Guardar"}
           </Button>
-          <Button disabled={generating} onClick={handleGeneratePdf}>
-            {generating ? "Generando…" : "Descargar PDF"}
+          <Button disabled={saving || generating} onClick={handleGeneratePdf}>
+            {generating ? "Generando…" : "Guardar y descargar PDF"}
           </Button>
         </div>
       </div>
@@ -188,7 +199,7 @@ export default function AlbaranNuevoClient({ catalog, clients, clinics }: { cata
       {saved && (
         <div role="status" className="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--tint)] px-4 py-3 text-sm">
           <span className="font-medium text-[var(--navy)]">Albarán creado.</span>
-          <Link href={`/clientes/${saved.clientId}/albaran/${saved.noteId}`} className="font-semibold text-[var(--navy)] underline">Ver albarán</Link>
+          <Link href={`/clientes/${saved.clientId}/albaran/${saved.noteId}`} className="font-semibold text-[var(--navy)] underline">Ver o editar albarán</Link>
           <button type="button" onClick={handleNew} className="font-semibold text-[var(--navy)] underline">Crear otro</button>
         </div>
       )}
@@ -199,6 +210,7 @@ export default function AlbaranNuevoClient({ catalog, clients, clinics }: { cata
         </div>
       )}
 
+      <fieldset disabled={saving || generating || Boolean(saved)} className="min-w-0 space-y-6">
       <Card className="p-6 space-y-4">
         <ClientPicker
           clients={clients}
@@ -270,6 +282,7 @@ export default function AlbaranNuevoClient({ catalog, clients, clinics }: { cata
 
       <LineItemsTable lines={lines} onChange={setLines} catalog={catalog} />
 
+      </fieldset>
       <ConfirmDialog
         open={confirmingNew}
         title="¿Vaciar el formulario?"

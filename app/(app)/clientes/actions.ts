@@ -1,11 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { requireSession } from "@/lib/auth/require-session";
+import type { ActionResult } from "@/lib/ui/action-result";
 import {
   createDeliveryNoteWithLines,
   createClient,
   getClient,
+  getClinic,
   getDeliveryNoteLinesForNotes,
   getDeliveryNotesForClient,
   updateClient,
@@ -16,35 +18,31 @@ import type { Client } from "@/types/database";
 import { emptyHeader, type AlbaranHeader, type LineItem } from "@/types/albaran";
 import { parseDiscount } from "@/lib/albaran/pricing";
 
-export async function createClientAction(formData: FormData) {
-  const client = await createClient({
-    naam_patient: String(formData.get("naam_patient") ?? "").trim() || null,
-    clinic_id: String(formData.get("clinic_id") ?? "").trim() || null,
-    in_opdracht: String(formData.get("in_opdracht") ?? "").trim() || null,
-    notes: String(formData.get("notes") ?? "").trim() || null,
-  });
-  revalidatePath("/clientes");
-  revalidatePath("/albaran/nuevo");
-  redirect(`/clientes/${client.id}`);
+async function saveClient(id: string | null, formData: FormData): Promise<ActionResult> {
+  await requireSession();
+  const naam_patient = String(formData.get("naam_patient") ?? "").trim();
+  if (!naam_patient) return { error: "Escribe el nombre del paciente.", field: "naam_patient" };
+  const input = { naam_patient, clinic_id: String(formData.get("clinic_id") ?? "").trim() || null, in_opdracht: String(formData.get("in_opdracht") ?? "").trim() || null, notes: String(formData.get("notes") ?? "").trim() || null };
+  try {
+    // An archived clinic is valid only when preserving the existing assignment.
+    if (input.clinic_id) {
+      const clinic = await getClinic(input.clinic_id);
+      const current = id ? await getClient(id) : null;
+      if (!clinic || (clinic.active === false && current?.clinic_id !== input.clinic_id)) return { error: "Selecciona una clínica activa.", field: "clinic_id" };
+    }
+    const client = id ? await updateClient(id, input) : await createClient(input);
+    revalidatePath("/clientes"); revalidatePath(`/clientes/${client.id}`); revalidatePath("/albaran/nuevo");
+    return { message: id ? "Cambios del paciente guardados." : "Paciente creado.", redirectTo: id ? undefined : `/clientes/${client.id}` };
+  } catch { return { error: "No se han podido guardar los datos del paciente. Vuelve a intentarlo." }; }
 }
-
-export async function updateClientAction(id: string, formData: FormData) {
-  await updateClient(id, {
-    naam_patient: String(formData.get("naam_patient") ?? "").trim() || null,
-    clinic_id: String(formData.get("clinic_id") ?? "").trim() || null,
-    in_opdracht: String(formData.get("in_opdracht") ?? "").trim() || null,
-    notes: String(formData.get("notes") ?? "").trim() || null,
-  });
-  revalidatePath("/clientes");
-  revalidatePath(`/clientes/${id}`);
-  revalidatePath("/albaran/nuevo");
-}
-
-export async function deleteClientAction(id: string) {
-  await deleteClient(id);
-  revalidatePath("/clientes");
-  revalidatePath("/albaran/nuevo");
-  redirect("/clientes");
+export async function createClientAction(formData: FormData) { return saveClient(null, formData); }
+export async function updateClientAction(id: string, formData: FormData) { return saveClient(id, formData); }
+export async function deleteClientAction(id: string): Promise<ActionResult> {
+  await requireSession();
+  try {
+    await deleteClient(id); revalidatePath("/clientes"); revalidatePath("/albaran/nuevo");
+    return { message: "Paciente eliminado. Sus albaranes se conservan desvinculados.", redirectTo: "/clientes" };
+  } catch { return { error: "No se ha podido eliminar el paciente. Vuelve a intentarlo." }; }
 }
 
 export async function importClientsAction(rows: Partial<Client>[]): Promise<{ count: number }> {

@@ -47,3 +47,8 @@ body {
     animation: none;
   }
 }
+
+/* Keep focused form controls readable without automatic zoom on iOS. */
+@media (max-width: 639px) {
+  input:not([type="checkbox"]):not([type="radio"]), select, textarea { font-size: 16px; }
+}

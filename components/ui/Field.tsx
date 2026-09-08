@@ -65,11 +65,12 @@ type UncontrolledFieldProps = {
   label: string;
   name: string;
   defaultValue?: string;
+  required?: boolean;
   placeholder?: string;
   id?: string;
 };
 
-export function UncontrolledField({ label, name, defaultValue, placeholder, id }: UncontrolledFieldProps) {
+export function UncontrolledField({ label, name, defaultValue, placeholder, id, required }: UncontrolledFieldProps) {
   const autoId = useId();
   const fieldId = id ?? autoId;
   return (
@@ -81,6 +82,7 @@ export function UncontrolledField({ label, name, defaultValue, placeholder, id }
         id={fieldId}
         name={name}
         placeholder={placeholder}
+        required={required}
         defaultValue={defaultValue}
         className="w-full rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm outline-none transition-shadow duration-150 ease-out focus:ring-2 focus:ring-[var(--focus)]"
       />
@@ -92,6 +94,7 @@ type UncontrolledTextareaProps = {
   label: string;
   name: string;
   defaultValue?: string;
+  required?: boolean;
   id?: string;
 } & Pick<TextareaHTMLAttributes<HTMLTextAreaElement>, "rows">;
 

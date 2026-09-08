@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { DeliveryNote, DeliveryNoteSource } from "@/types/database";
-import { downloadPdf, generateAlbaranPdf } from "@/lib/pdf/generateAlbaran";
+
 import { getCombinedLinesAction, saveCombinedInvoiceAction } from "@/app/(app)/clientes/actions";
 import { Button } from "@/components/ui/Button";
 
@@ -98,6 +98,7 @@ export default function DeliveryNotesTable({
       );
       if (lines.length === 0) throw new Error("Los albaranes seleccionados no tienen líneas.");
 
+      const { generateAlbaranPdf, downloadPdf } = await import("@/lib/pdf/generateAlbaran");
       const bytes = await generateAlbaranPdf(header, lines);
       await saveCombinedInvoiceAction(clientId, clinicId, header, lines);
       downloadPdf(bytes, "factura");

@@ -38,7 +38,7 @@ export default async function ClienteDetailPage({ params }: { params: Promise<{ 
   const originalDocumentUrls = Object.fromEntries(
     originalDocumentUrlEntries.filter((entry): entry is readonly [string, string] => entry !== null)
   );
-  const clinics = await getClinics();
+  const clinics = await getClinics(true);
   const boundUpdate = updateClientAction.bind(null, id);
   const boundDelete = deleteClientAction.bind(null, id);
 

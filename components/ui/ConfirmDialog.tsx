@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useId } from "react";
 import { Button } from "./Button";
 
 type ConfirmDialogProps = {
@@ -12,6 +12,7 @@ type ConfirmDialogProps = {
   onConfirm: () => void;
   onCancel: () => void;
   danger?: boolean;
+  pending?: boolean;
 };
 
 export function ConfirmDialog({
@@ -23,7 +24,10 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
   danger,
+  pending = false,
 }: ConfirmDialogProps) {
+  const titleId = useId();
+  const descriptionId = useId();
   const ref = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -38,22 +42,24 @@ export function ConfirmDialog({
       ref={ref}
       onCancel={(e) => {
         e.preventDefault();
-        onCancel();
+        if (!pending) onCancel();
       }}
       onClose={onCancel}
       className="m-auto max-w-sm rounded-2xl border border-[var(--line)] bg-white p-0 shadow-lg backdrop:bg-black/30"
-      aria-labelledby="confirm-dialog-title"
+      aria-labelledby={titleId}
+      aria-describedby={description ? descriptionId : undefined}
+      aria-busy={pending}
     >
       <div className="w-full p-6">
-        <h2 id="confirm-dialog-title" className="text-base font-bold text-[var(--ink)]">
+        <h2 id={titleId} className="text-base font-bold text-[var(--ink)]">
           {title}
         </h2>
-        {description && <p className="mt-2 text-sm text-[var(--muted)]">{description}</p>}
+        {description && <p id={descriptionId} className="mt-2 text-sm text-[var(--muted)]">{description}</p>}
         <div className="mt-5 flex justify-end gap-2">
-          <Button variant="secondary" onClick={onCancel}>
+          <Button autoFocus variant="secondary" disabled={pending} onClick={onCancel}>
             {cancelLabel}
           </Button>
-          <Button variant={danger ? "danger" : "primary"} onClick={onConfirm}>
+          <Button variant={danger ? "danger" : "primary"} disabled={pending} onClick={onConfirm}>
             {confirmLabel}
           </Button>
         </div>

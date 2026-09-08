@@ -42,16 +42,14 @@ export default function LineItemsTable({
   // so an absolutely-positioned dropdown would get cut off instead of floating
   // above the rest of the page.
   useLayoutEffect(() => {
-    if (openRow === null) {
-      setDropdownPos(null);
-      return;
-    }
+    if (openRow === null) return;
     const el = codeInputRefs.current[openRow];
     if (!el) return;
     const update = () => {
       const r = el.getBoundingClientRect();
       setDropdownPos({ top: r.bottom + 4, left: r.left, width: Math.min(420, window.innerWidth - r.left - 16) });
     };
+    // Position before paint to avoid a jumping portaled suggestion list.
     update();
     window.addEventListener("scroll", update, true);
     window.addEventListener("resize", update);
@@ -65,13 +63,10 @@ export default function LineItemsTable({
   // new object, so identity can't be used. New lines are always appended, and
   // removal always goes through removeLine below, so a parallel id array kept in
   // lockstep (push on growth, splice on removal) stays correctly aligned by index.
-  const idsRef = useRef<number[]>(lines.map((_, i) => i));
-  const nextIdRef = useRef(lines.length);
-  while (idsRef.current.length < lines.length) {
-    idsRef.current.push(nextIdRef.current++);
-  }
-  if (idsRef.current.length > lines.length) {
-    idsRef.current.length = lines.length;
+  const [rowKeys, setRowKeys] = useState(() => ({ ids: lines.map((_, i) => i), next: lines.length }));
+  if (rowKeys.ids.length !== lines.length) {
+    const extra = Math.max(0, lines.length - rowKeys.ids.length);
+    setRowKeys({ ids: [...rowKeys.ids.slice(0, lines.length), ...Array.from({ length: extra }, (_, i) => rowKeys.next + i)], next: rowKeys.next + extra });
   }
 
   const setLine = (i: number, patch: Partial<LineItem>) => {
@@ -107,7 +102,7 @@ export default function LineItemsTable({
   };
 
   const removeLine = (i: number) => {
-    idsRef.current.splice(i, 1);
+    setRowKeys((keys) => ({ ...keys, ids: keys.ids.filter((_, index) => index !== i) }));
     onChange(lines.filter((_, idx) => idx !== i));
   };
 
@@ -134,10 +129,10 @@ export default function LineItemsTable({
             {lines.map((l, i) => {
               const bedrag = lineTotal(l);
               const sugs = openRow === i ? suggestions(catalog, l.code) : [];
-              const listboxId = `line-${idsRef.current[i]}-suggestions`;
+              const listboxId = `line-${rowKeys.ids[i]}-suggestions`;
               return (
                 <tr
-                  key={idsRef.current[i]}
+                  key={rowKeys.ids[i]}
                   className="animate-fade-slide-in border-b border-[var(--line-soft)] transition-colors duration-150 last:border-0 hover:bg-slate-50/70"
                 >
                   <td className="px-3 py-1.5 relative">

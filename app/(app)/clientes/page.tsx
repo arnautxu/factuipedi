@@ -10,7 +10,7 @@ export default async function ClientesPage({
 }) {
   const { q } = await searchParams;
   const clients = await getClients(q);
-  const clinics = await getClinics();
+  const clinics = await getClinics(true);
   const clinicNames = new Map(clinics.map((clinic) => [clinic.id, clinic.name]));
 
   return (

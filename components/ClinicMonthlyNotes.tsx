@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import * as XLSX from "xlsx";
+import { useMemo, useRef, useState } from "react";
+import { ActionFeedback, type Feedback } from "@/components/ui/ActionFeedback";
 import type { Clinic, DeliveryNote, MonthlyStatus } from "@/types/database";
-import { generateMonthlyInvoicePdf, downloadMonthlyInvoicePdf } from "@/lib/pdf/generateMonthlyInvoice";
+
 import { updateClinicMonthlyStatusAction } from "@/app/(app)/clinicas/actions";
 import { Button } from "@/components/ui/Button";
 
@@ -25,57 +25,53 @@ function monthLabel(key: string) {
 }
 
 export default function ClinicMonthlyNotes({ clinic, notes }: { clinic: Clinic; notes: DeliveryNote[] }) {
-  const [loading, setLoading] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const lock = useRef(false);
+  const [message, setMessage] = useState<Feedback | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | MonthlyStatus>("all");
-  const [pending, startTransition] = useTransition();
-  const filteredNotes = useMemo(
-    () => statusFilter === "all" ? notes : notes.filter((note) => note.monthly_status === statusFilter),
-    [notes, statusFilter],
-  );
-  const groups = useMemo(() => Object.entries(filteredNotes.reduce<Record<string, DeliveryNote[]>>((all, note) => { const key = monthKey(note); (all[key] ??= []).push(note); return all; }, {})).sort(([a], [b]) => b.localeCompare(a)), [filteredNotes]);
-
-  const exportRows = (key: string, monthNotes: DeliveryNote[], type: "xlsx" | "csv") => {
-    const rows = monthNotes.map((note, index) => ({
-      Orden: index + 1, Albarán: note.pakbonnummer || note.id.slice(0, 8), Fecha: note.uitgiftedatum || note.inkomstdatum || "",
-      Paciente: note.naam_patient || "", Importe: note.total ?? 0, Estado: STATUS[note.monthly_status],
-    }));
-    const sheet = XLSX.utils.json_to_sheet(rows);
-    const book = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(book, sheet, "Factura mensual");
-    XLSX.writeFile(book, `factura-mensual-${key}-${clinic.name}`.replace(/[^\w.-]/g, "_") + `.${type}`, { bookType: type === "csv" ? "csv" : "xlsx" });
+  const groups = useMemo(() => Object.entries(notes.reduce<Record<string, DeliveryNote[]>>((all, note) => {
+    (all[monthKey(note)] ??= []).push(note); return all;
+  }, {})).sort(([a], [b]) => b.localeCompare(a)), [notes]);
+  const run = async (key: string, action: () => Promise<string>) => {
+    if (lock.current) return;
+    lock.current = true; setBusy(key); setMessage(null);
+    try { setMessage({ type: "success", text: await action() }); }
+    catch { setMessage({ type: "error", text: "No se ha podido completar la acción. Comprueba la conexión y vuelve a intentarlo." }); }
+    finally { lock.current = false; setBusy(null); }
   };
-
-  const downloadInvoice = async (key: string, monthNotes: DeliveryNote[]) => {
-    setLoading(key); setError(null);
-    try {
-      const pdf = await generateMonthlyInvoicePdf({ clinic, period: monthLabel(key), notes: monthNotes });
-      downloadMonthlyInvoicePdf(pdf, key, clinic.name);
-    } catch (err) { setError(err instanceof Error ? err.message : "No se ha podido generar la factura mensual."); }
-    finally { setLoading(null); }
-  };
-
+  const exportRows = (key: string, rows: DeliveryNote[], type: "xlsx" | "csv") => run(`${key}-${type}`, async () => {
+    const XLSX = await import("xlsx");
+    const scope = statusFilter === "all" ? "Mes completo" : `Filtrado: ${STATUS[statusFilter]}`;
+    const sheet = XLSX.utils.json_to_sheet(rows.map((note, index) => ({
+      Alcance: scope, Periodo: monthLabel(key), Orden: index + 1, Albarán: note.pakbonnummer || note.id.slice(0, 8), Fecha: note.uitgiftedatum || note.inkomstdatum || "", Paciente: note.naam_patient || "", Importe: note.total ?? 0, Estado: STATUS[note.monthly_status],
+    })));
+    const book = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(book, sheet, "Trabajos");
+    XLSX.writeFile(book, `trabajos-${key}-${statusFilter}-${clinic.name}`.replace(/[^\w.-]/g, "_") + `.${type}`, { bookType: type });
+    return `${rows.length} trabajos preparados. Descarga ${type.toUpperCase()} iniciada.`;
+  });
+  const downloadInvoice = (key: string, monthNotes: DeliveryNote[]) => run(`${key}-pdf`, async () => {
+    const { generateMonthlyInvoicePdf, downloadMonthlyInvoicePdf } = await import("@/lib/pdf/generateMonthlyInvoice");
+    const pdf = await generateMonthlyInvoicePdf({ clinic, period: monthLabel(key), notes: monthNotes });
+    downloadMonthlyInvoicePdf(pdf, key, clinic.name);
+    return `Factura del mes completo preparada (${monthNotes.length} trabajos). Descarga iniciada.`;
+  });
+  const updateStatus = (note: DeliveryNote, status: MonthlyStatus) => run(note.id, async () => {
+    await updateClinicMonthlyStatusAction(clinic.id, [note.id], status);
+    return `Albarán ${note.pakbonnummer || "sin número"}: ${STATUS[status]}.${statusFilter !== "all" && statusFilter !== status ? " Ya no aparece porque no coincide con el filtro." : ""}`;
+  });
   if (!notes.length) return <p className="py-6 text-sm text-[var(--muted)]">Todavía no hay trabajos de esta clínica.</p>;
-  return <div>
-    <div className="flex items-center justify-end border-b border-[var(--line)] py-3">
-      <label htmlFor="monthly-status-filter" className="mr-2 text-xs font-semibold text-[var(--muted)]">Filtrar por estado</label>
-      <select
-        id="monthly-status-filter"
-        value={statusFilter}
-        onChange={(event) => setStatusFilter(event.target.value as "all" | MonthlyStatus)}
-        className="rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm text-[var(--ink)]"
-      >
-        <option value="all">Todos los estados</option>
-        {Object.entries(STATUS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-      </select>
-    </div>
-    {groups.length === 0 ? (
-      <p className="py-6 text-sm text-[var(--muted)]">No hay trabajos con este estado.</p>
-    ) : (
-      <div className="divide-y divide-[var(--line)]">{groups.map(([key, monthNotes]) => {
-    const total = monthNotes.reduce((sum, note) => sum + (note.total ?? 0), 0);
-    return <section key={key} className="py-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-semibold capitalize text-[var(--navy)]">{monthLabel(key)}</h3><p className="mt-1 text-xs text-[var(--muted)]">{monthNotes.length} {monthNotes.length === 1 ? "trabajo" : "trabajos"} · Total {euro(total)}</p></div><div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={loading !== null} onClick={() => downloadInvoice(key, monthNotes)}>{loading === key ? "Generando…" : "Descargar factura PDF"}</Button><Button variant="secondary" onClick={() => exportRows(key, monthNotes, "xlsx")}>Excel</Button><Button variant="secondary" onClick={() => exportRows(key, monthNotes, "csv")}>CSV</Button></div></div><div className="mt-4 overflow-x-auto rounded-xl border border-[var(--line)]"><table className="min-w-[680px] w-full text-sm"><thead><tr className="border-b border-[var(--line)] text-left text-xs uppercase tracking-wide text-[var(--muted)]"><th className="px-3 py-2">Albarán</th><th className="px-3 py-2">Fecha</th><th className="px-3 py-2">Paciente</th><th className="px-3 py-2 text-right">Importe</th><th className="px-3 py-2">Estado</th></tr></thead><tbody>{monthNotes.map((note) => <tr key={note.id} className="border-b border-[var(--line-soft)] last:border-0"><td className="px-3 py-2 font-medium text-[var(--navy)]">{note.pakbonnummer || "Sin número"}</td><td className="px-3 py-2">{note.uitgiftedatum || note.inkomstdatum || "—"}</td><td className="px-3 py-2">{note.naam_patient || "—"}</td><td className="px-3 py-2 text-right tabular-nums">{euro(note.total)}</td><td className="px-3 py-2"><select aria-label={`Estado de ${note.pakbonnummer || note.id}`} disabled={pending} value={note.monthly_status} onChange={(event) => startTransition(async () => { try { await updateClinicMonthlyStatusAction(clinic.id, [note.id], event.target.value as MonthlyStatus); } catch (err) { setError(err instanceof Error ? err.message : "No se ha podido actualizar el estado."); } })} className="rounded border border-[var(--line)] bg-white px-2 py-1 text-xs">{Object.entries(STATUS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></td></tr>)}</tbody></table></div></section>;
-      })}{error && <p role="alert" className="py-3 text-sm text-red-700">{error}</p>}</div>
-    )}
+  return <div className="space-y-4">
+    <div className="flex flex-wrap items-center gap-2 pt-4"><label htmlFor="monthly-status-filter" className="text-sm font-semibold text-[var(--muted)]">Mostrar trabajos</label><select id="monthly-status-filter" value={statusFilter} disabled={busy !== null} onChange={(event) => { setStatusFilter(event.target.value as typeof statusFilter); setMessage(null); }} className="min-h-11 rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm"><option value="all">Todos los estados</option>{Object.entries(STATUS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
+    <ActionFeedback message={message} />
+    <div className="divide-y divide-[var(--line)]">{groups.map(([key, monthNotes]) => {
+      const visible = monthNotes.filter((note) => statusFilter === "all" || note.monthly_status === statusFilter);
+      const total = monthNotes.reduce((sum, note) => sum + (note.total ?? 0), 0);
+      return <section key={key} className="space-y-4 py-5" aria-label={monthLabel(key)}>
+        <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-semibold capitalize text-[var(--navy)]">{monthLabel(key)}</h3><p className="mt-1 text-sm text-[var(--muted)]">Mes completo: {monthNotes.length} trabajos · {euro(total)}</p></div><Button variant="secondary" disabled={busy !== null || key === "sin-fecha"} onClick={() => downloadInvoice(key, monthNotes)}>{busy === `${key}-pdf` ? "Generando…" : "Descargar factura del mes completo"}</Button></div>
+        {key === "sin-fecha" && <p className="text-sm text-[var(--muted)]">Añade una fecha a estos albaranes para incluirlos en una factura mensual.</p>}
+        <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-[var(--muted)]">Mostrando {visible.length} de {monthNotes.length} trabajos{statusFilter !== "all" ? ` · ${STATUS[statusFilter]}` : ""} · {euro(visible.reduce((sum, note) => sum + (note.total ?? 0), 0))}</p><div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={busy !== null || !visible.length} onClick={() => exportRows(key, visible, "xlsx")}>{busy === `${key}-xlsx` ? "Generando…" : `Excel (${visible.length} trabajos visibles)`}</Button><Button variant="secondary" disabled={busy !== null || !visible.length} onClick={() => exportRows(key, visible, "csv")}>{busy === `${key}-csv` ? "Generando…" : `CSV (${visible.length} trabajos visibles)`}</Button></div></div>
+        {!visible.length ? <p className="py-3 text-sm text-[var(--muted)]">No hay trabajos con este estado en este mes.</p> : <ul className="divide-y divide-[var(--line-soft)] rounded-xl border border-[var(--line)]">{visible.map((note) => <li key={note.id} className="grid grid-cols-1 items-center gap-3 px-3 py-3 sm:grid-cols-[1fr_auto_auto]"><div className="min-w-0"><p className="break-words font-medium text-[var(--navy)]">{note.pakbonnummer || "Sin número"} · {note.naam_patient || "Sin paciente"}</p><p className="mt-1 text-sm text-[var(--muted)]">{note.uitgiftedatum || note.inkomstdatum || "Sin fecha"}</p></div><span className="text-sm tabular-nums">{euro(note.total)}</span><label className="flex items-center gap-2 text-sm"><span>{busy === note.id ? "Guardando…" : "Estado"}</span><select aria-label={`Estado de ${note.pakbonnummer || note.id}`} value={note.monthly_status} disabled={busy !== null} onChange={(event) => updateStatus(note, event.target.value as MonthlyStatus)} className="min-h-11 rounded-lg border border-[var(--line)] bg-white px-2 py-2">{Object.entries(STATUS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label></li>)}</ul>}
+      </section>;
+    })}</div>
   </div>;
 }

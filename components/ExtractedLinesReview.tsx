@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useNotice } from "@/components/ui/ActionFeedback";
 import { useRouter } from "next/navigation";
 import type { ExtractedDeliveryNote } from "@/lib/ai/extractDeliveryNote";
 import type { ImportedWork } from "@/types/database";
@@ -25,6 +26,7 @@ export default function ExtractedLinesReview({
   extracted: ExtractedDeliveryNote;
 }) {
   const router = useRouter();
+  const notify = useNotice();
   const [patientName, setPatientName] = useState(extracted.patient_name);
   const [date, setDate] = useState(extracted.date);
   const [externalCode, setExternalCode] = useState(work.external_code ?? extracted.external_code);
@@ -67,13 +69,17 @@ export default function ExtractedLinesReview({
   const handleSave = async () => {
     setSaving(true);
     setError(null);
+    try {
     const result = await saveExtractedNoteAction(clientId, documentId, work.id, externalCode, patientName, date, lines, extracted.discount);
     setSaving(false);
     if ("error" in result) {
       setError(result.error);
       return;
     }
+    notify("Albarán importado y guardado en la ficha del paciente.", `/clientes/${clientId}`);
     router.push(`/clientes/${clientId}`);
+    } catch { setError("No se ha podido guardar el albarán. Comprueba la conexión y vuelve a intentarlo."); }
+    finally { setSaving(false); }
   };
 
   return (

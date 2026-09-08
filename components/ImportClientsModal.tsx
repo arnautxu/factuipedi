@@ -63,13 +63,7 @@ export function ImportClientsModal({
     if (!dialog) return;
     if (open && !dialog.open) dialog.showModal();
     if (!open && dialog.open) dialog.close();
-    if (open) {
-      setStep("pick");
-      setFileName("");
-      setHasHeader(true);
-      setRawRows([]);
-      setError(null);
-    }
+
   }, [open]);
 
   const width = rawRows.reduce((m, r) => Math.max(m, r.length), 0);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import AlbaranForm from "@/components/AlbaranForm";
@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/Button";
 import { applyDiscountToAmount, lineTotal } from "@/lib/albaran/pricing";
 import type { CatalogEntry } from "@/types/catalog";
 import { newLine, type AlbaranHeader, type LineItem } from "@/types/albaran";
-import { generateAlbaranPdf, downloadPdf } from "@/lib/pdf/generateAlbaran";
+import { useUnsavedChanges } from "@/components/ui/useUnsavedChanges";
+import { useNotice } from "@/components/ui/ActionFeedback";
 import { updateAlbaranAction } from "@/app/(app)/albaran/actions";
 
 export default function EditAlbaranClient({
@@ -39,6 +40,11 @@ export default function EditAlbaranClient({
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
 
+  const lock = useRef(false);
+  const snapshot = JSON.stringify({ header, lines, documentDiscount });
+  const [savedSnapshot, setSavedSnapshot] = useState(snapshot);
+  const allowNavigation = useUnsavedChanges(snapshot !== savedSnapshot);
+  const notify = useNotice();
   const reviewItems = catalog.filter((p) => p.priceText);
   const totalWithDocumentDiscount = applyDiscountToAmount(
     lines.reduce((sum, line) => sum + lineTotal(line), 0),
@@ -46,22 +52,29 @@ export default function EditAlbaranClient({
   );
 
   const handleSave = async () => {
+    if (lock.current) return;
+    lock.current = true;
     setSaving(true);
     setMessage(null);
     try {
       await updateAlbaranAction(noteId, clientId, header, lines, documentDiscount);
+      setSavedSnapshot(snapshot); allowNavigation();
+      notify("Cambios del albarán guardados.", `/clientes/${clientId}`);
       router.push(`/clientes/${clientId}`);
     } catch (err) {
       setMessage({ type: "error", text: "Error al guardar los cambios: " + (err instanceof Error ? err.message : String(err)) });
     } finally {
-      setSaving(false);
+      lock.current = false; setSaving(false);
     }
   };
 
   const handleGeneratePdf = async () => {
+    if (lock.current) return;
+    lock.current = true;
     setGenerating(true);
     setMessage(null);
     try {
+      const { generateAlbaranPdf, downloadPdf } = await import("@/lib/pdf/generateAlbaran");
       const bytes = await generateAlbaranPdf(header, lines, documentDiscount);
       // Es desa abans de descarregar: a Safari mòbil, la descàrrega d'un PDF
       // pot interrompre una petició de xarxa concurrent en curs.
@@ -74,11 +87,13 @@ export default function EditAlbaranClient({
         });
         return;
       }
+      setSavedSnapshot(snapshot);
       downloadPdf(bytes, header.pakbonnummer);
+      setMessage({ type: "success", text: "Cambios guardados. Descarga del PDF iniciada." });
     } catch (err) {
       setMessage({ type: "error", text: "Error al generar el PDF: " + (err instanceof Error ? err.message : String(err)) });
     } finally {
-      setGenerating(false);
+      lock.current = false; setGenerating(false);
     }
   };
 
@@ -94,15 +109,15 @@ export default function EditAlbaranClient({
           </Link>
           <h1 className="text-lg font-bold text-[var(--navy)] mt-1">Editar albarán</h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="secondary" onClick={() => setLines((ls) => [...ls, newLine()])}>
             + Línea
           </Button>
-          <Button variant="secondary" disabled={saving} onClick={handleSave}>
+          <Button variant="secondary" disabled={saving || generating} onClick={handleSave}>
             {saving ? "Guardando…" : "Guardar cambios"}
           </Button>
-          <Button disabled={generating} onClick={handleGeneratePdf}>
-            {generating ? "Generando…" : "Descargar PDF"}
+          <Button disabled={saving || generating} onClick={handleGeneratePdf}>
+            {generating ? "Generando…" : "Guardar y descargar PDF"}
           </Button>
         </div>
       </div>
@@ -124,6 +139,7 @@ export default function EditAlbaranClient({
         </div>
       )}
 
+      <fieldset disabled={saving || generating} className="min-w-0 space-y-6">
       <Card className="p-6 space-y-4">
         <AlbaranForm header={header} onChange={setHeader} />
 
@@ -157,6 +173,7 @@ export default function EditAlbaranClient({
           Total con descuento: {totalWithDocumentDiscount.toLocaleString("nl-NL", { style: "currency", currency: "EUR" })}
         </p>
       </Card>
+      </fieldset>
     </div>
   );
 }

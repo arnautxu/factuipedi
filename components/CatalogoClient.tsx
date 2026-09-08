@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
-import * as XLSX from "xlsx";
+import { useMemo, useRef, useState } from "react";
+import { useUnsavedChanges } from "@/components/ui/useUnsavedChanges";
 import type { CatalogItem } from "@/types/database";
 import {
   importFromXlsxAction,
@@ -56,7 +56,13 @@ function draftToInput(d: Draft) {
 export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) {
   const [items, setItems] = useState(catalog);
   const [query, setQuery] = useState("");
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
+  const operationLock = useRef(false);
+  const run = async (action: () => Promise<void>) => {
+    if (operationLock.current) return;
+    operationLock.current = true; setPending(true); setMessage(null);
+    try { await action(); } finally { operationLock.current = false; setPending(false); }
+  };
   const [message, setMessage] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<Draft>(EMPTY_DRAFT);
@@ -64,6 +70,10 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const currentEdit = items.find((item) => item.id === editingId);
+  const editDirty = Boolean(currentEdit && JSON.stringify(editDraft) !== JSON.stringify(itemToDraft(currentEdit)));
+  useUnsavedChanges(editDirty || JSON.stringify(newDraft) !== JSON.stringify(EMPTY_DRAFT));
+  const discardEdit = () => !editDirty || window.confirm("Tienes cambios sin guardar. ¿Descartarlos?");
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return items;
@@ -71,21 +81,25 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
   }, [items, query]);
 
   const startEdit = (item: CatalogItem) => {
+    if (!discardEdit()) return;
+    setMessage(null);
     setEditingId(item.id);
     setEditDraft(itemToDraft(item));
   };
 
   const cancelEdit = () => {
+    if (!discardEdit()) return;
     setEditingId(null);
   };
 
   const saveEdit = (id: string) => {
     const input = draftToInput(editDraft);
-    startTransition(async () => {
+    void run(async () => {
       try {
         const updated = await updateItemAction(id, input);
         setItems((prev) => prev.map((it) => (it.id === id ? updated : it)));
         setEditingId(null);
+        setMessage("Producto actualizado.");
       } catch (err) {
         setMessage("Error al guardar el cambio: " + (err instanceof Error ? err.message : String(err)));
       }
@@ -95,49 +109,55 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
   const confirmDelete = () => {
     const id = deletingId;
     if (!id) return;
-    setDeletingId(null);
-    startTransition(async () => {
+    void run(async () => {
       try {
         await deleteItemAction(id);
         setItems((prev) => prev.filter((it) => it.id !== id));
+        setMessage("Producto eliminado.");
       } catch (err) {
         setMessage("Error al eliminar: " + (err instanceof Error ? err.message : String(err)));
-      }
+      } finally { setDeletingId(null); }
     });
   };
 
   const handleMove = (id: string, direction: "up" | "down") => {
+    if (operationLock.current || query.trim()) return;
     const idx = items.findIndex((it) => it.id === id);
     const swapIdx = direction === "up" ? idx - 1 : idx + 1;
     if (idx < 0 || swapIdx < 0 || swapIdx >= items.length) return;
+    const previous = items;
     const next = items.slice();
     [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
     setItems(next);
-    startTransition(async () => {
+    void run(async () => {
       try {
         await moveItemAction(id, direction);
+        setMessage("Orden guardado.");
       } catch (err) {
+        setItems(previous);
         setMessage("Error al reordenar: " + (err instanceof Error ? err.message : String(err)));
       }
     });
   };
 
   const handleCreate = () => {
-    if (!newDraft.description.trim() && !newDraft.code.trim()) return;
+    if (!newDraft.description.trim() && !newDraft.code.trim()) { setMessage("Error: escribe un código o una descripción para añadir el producto."); return; }
     const input = draftToInput(newDraft);
-    startTransition(async () => {
+    void run(async () => {
       try {
         const created = await createItemAction(input);
         setItems((prev) => [...prev, created]);
         setNewDraft(EMPTY_DRAFT);
+        setMessage("Producto añadido.");
       } catch (err) {
         setMessage("Error al añadir el producto: " + (err instanceof Error ? err.message : String(err)));
       }
     });
   };
 
-  const handleExport = () => {
+  const handleExport = () => run(async () => {
     try {
+      const XLSX = await import("xlsx");
       const wb = XLSX.utils.book_new();
       const byCat = new Map<string, CatalogItem[]>();
       for (const it of items) {
@@ -166,27 +186,21 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
       link.click();
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 0);
-      setMessage("✓ Excel descargado.");
+      setMessage("Excel preparado. Descarga iniciada.");
     } catch (err) {
       setMessage("No se ha podido generar el Excel: " + (err instanceof Error ? err.message : String(err)));
     }
-  };
+  });
 
   const handleImportFile = (file: File) => {
-    setMessage(null);
-    const reader = new FileReader();
-    reader.onload = () => {
-      startTransition(async () => {
-        try {
-          await importFromXlsxAction(reader.result as ArrayBuffer);
-          setMessage(`✓ Catálogo reimportado desde ${file.name}. Recargando…`);
-          setTimeout(() => window.location.reload(), 800);
-        } catch (err) {
-          setMessage("Error al leer el Excel: " + (err instanceof Error ? err.message : String(err)));
-        }
-      });
-    };
-    reader.readAsArrayBuffer(file);
+    if (!discardEdit()) return;
+    void run(async () => {
+      try {
+        await importFromXlsxAction(await file.arrayBuffer());
+        setMessage(`Catálogo importado desde ${file.name}. Recargando…`);
+        window.location.reload();
+      } catch (err) { setMessage("Error al importar el Excel: " + (err instanceof Error ? err.message : String(err))); }
+    });
   };
 
   return (
@@ -196,8 +210,8 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
           <h1 className="text-lg font-bold text-[var(--navy)]">Catálogo</h1>
           <p className="text-xs text-[var(--muted)]">{items.length} productos</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="secondary" onClick={handleExport}>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" disabled={pending} onClick={handleExport}>
             Descargar Excel
           </Button>
           <Button variant="secondary" disabled={pending} onClick={() => fileRef.current?.click()}>
@@ -218,11 +232,13 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
       </div>
 
       {message && (
-        <div role="status" className="animate-fade-slide-in text-sm bg-white border border-[var(--line)] border-l-4 border-l-[var(--teal-deep)] rounded-xl px-4 py-3">
+        <div role={/^(Error|No se ha)/.test(message) ? "alert" : "status"} className="animate-fade-slide-in text-sm bg-white border border-[var(--line)] border-l-4 border-l-[var(--teal-deep)] rounded-xl px-4 py-3">
           {message}
         </div>
       )}
 
+      {pending && <p role="status" className="text-sm text-[var(--muted)]">Procesando…</p>}
+      <fieldset disabled={pending} className="min-w-0 space-y-4">
       <div>
         <label htmlFor="catalog-search" className="sr-only">
           Buscar en el catálogo
@@ -291,7 +307,7 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
                 <button
                   type="button"
                   onClick={handleCreate}
-                  className="rounded px-1.5 py-1 text-xs font-semibold text-[var(--navy)] transition-colors duration-150 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
+                  className="min-h-11 rounded px-2 py-2 text-xs font-semibold text-[var(--navy)] transition-colors duration-150 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
                 >
                   + Añadir
                 </button>
@@ -309,19 +325,19 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
                     <div className="flex flex-col">
                       <button
                         type="button"
-                        disabled={i === 0}
+                        disabled={pending || Boolean(query.trim()) || i === 0}
                         onClick={() => handleMove(item.id, "up")}
                         aria-label={`Mover ${item.code || item.description} arriba`}
-                        className="inline-flex h-6 w-6 items-center justify-center rounded text-xs leading-none text-[var(--muted)] transition-colors duration-150 hover:bg-slate-100 hover:text-[var(--navy)] disabled:opacity-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
+                        className="inline-flex h-11 w-11 items-center justify-center rounded text-xs leading-none text-[var(--muted)] transition-colors duration-150 hover:bg-slate-100 hover:text-[var(--navy)] disabled:opacity-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
                       >
                         ▲
                       </button>
                       <button
                         type="button"
-                        disabled={i === filtered.length - 1}
+                        disabled={pending || Boolean(query.trim()) || i === filtered.length - 1}
                         onClick={() => handleMove(item.id, "down")}
                         aria-label={`Mover ${item.code || item.description} abajo`}
-                        className="inline-flex h-6 w-6 items-center justify-center rounded text-xs leading-none text-[var(--muted)] transition-colors duration-150 hover:bg-slate-100 hover:text-[var(--navy)] disabled:opacity-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
+                        className="inline-flex h-11 w-11 items-center justify-center rounded text-xs leading-none text-[var(--muted)] transition-colors duration-150 hover:bg-slate-100 hover:text-[var(--navy)] disabled:opacity-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
                       >
                         ▼
                       </button>
@@ -365,6 +381,7 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
                       <td className="px-3 py-1.5 whitespace-nowrap">
                         <button
                           type="button"
+                          disabled={pending}
                           onClick={() => saveEdit(item.id)}
                           className="mr-2 rounded px-1.5 py-1 text-xs font-semibold text-[var(--navy)] transition-colors duration-150 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
                         >
@@ -372,8 +389,9 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
                         </button>
                         <button
                           type="button"
+                          disabled={pending}
                           onClick={cancelEdit}
-                          className="rounded px-1.5 py-1 text-xs text-[var(--muted)] transition-colors duration-150 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
+                          className="min-h-11 rounded px-2 py-2 text-xs text-[var(--muted)] transition-colors duration-150 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
                         >
                           Cancelar
                         </button>
@@ -388,15 +406,17 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
                       <td className="px-3 py-1.5 whitespace-nowrap">
                         <button
                           type="button"
+                          disabled={pending}
                           onClick={() => startEdit(item)}
-                          className="mr-3 rounded px-1.5 py-1 text-xs font-semibold text-[var(--navy)] transition-colors duration-150 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
+                          className="mr-3 min-h-11 rounded px-2 py-2 text-xs font-semibold text-[var(--navy)] transition-colors duration-150 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
                         >
                           Editar
                         </button>
                         <button
                           type="button"
+                          disabled={pending}
                           onClick={() => setDeletingId(item.id)}
-                          className="rounded px-1.5 py-1 text-xs text-red-600 transition-colors duration-150 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
+                          className="min-h-11 rounded px-2 py-2 text-xs text-red-600 transition-colors duration-150 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]"
                         >
                           Eliminar
                         </button>
@@ -411,11 +431,13 @@ export default function CatalogoClient({ catalog }: { catalog: CatalogItem[] }) 
         {filtered.length === 0 && <p className="text-sm text-[var(--muted)] px-5 py-6">No se ha encontrado ningún producto.</p>}
       </div>
 
+      </fieldset>
       <ConfirmDialog
         open={deletingId !== null}
         title="¿Eliminar este producto?"
         description="Se eliminará del catálogo. Esta acción no se puede deshacer."
-        confirmLabel="Eliminar"
+        pending={pending}
+        confirmLabel={pending ? "Eliminando…" : "Eliminar"}
         danger
         onConfirm={confirmDelete}
         onCancel={() => setDeletingId(null)}

@@ -103,9 +103,11 @@ export async function getClients(search?: string): Promise<Client[]> {
   return (data ?? []) as Client[];
 }
 
-export async function getClinics(): Promise<Clinic[]> {
+export async function getClinics(includeArchived = false): Promise<Clinic[]> {
   const supabase = createAdminClient();
-  const { data, error } = await supabase.from("clinics").select("*").eq("active", true).order("name", { ascending: true });
+  let query = supabase.from("clinics").select("*").order("name", { ascending: true });
+  if (!includeArchived) query = query.eq("active", true);
+  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as Clinic[];
 }
